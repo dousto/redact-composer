@@ -1,35 +1,54 @@
-use std::{fmt::Debug, collections::HashMap};
+use std::{fmt::Debug, marker::PhantomData};
 
+/// Represents the type for each CompositionSegment. The generic parameter is 
+/// a delegate type chosen by the [`Renderer`] implementation.
+/// 
+/// [`Abstract`](SegmentType::Abstract) and [`Part`](SegmentType::Part) both represent abstract types
+/// which will be passed to a [`Renderer`] during [`Composer::compose()`].
 #[derive(Debug, PartialEq)]
-pub enum SegmentType {
-    Abstract { abstract_type: String, name: Option<String>, data: HashMap<String, String> },
+pub enum SegmentType<T> {
+    /// An abstract segment that will be further rendered by a [`Renderer<T>`].
+    Abstract(T),
+
+    /// Almost identical to [`SegmentType::Abstract`], but in addition, marks a group
+    /// which includes all children of the [`CompositionSegment`] (used to assign midi channels)
+    Part(T),
+
+    /// Represents a midi program to be used for all [`SegmentType::PlayNote`] children within
+    /// its [`CompositionSegment`]'s time range.
     Instrument { program: i8 },
+
+    /// A note to be played with given pitch and velocity. Timing of the played note comes from
+    /// its associated [`CompositionSegment`]
     PlayNote { note: u8, velocity: u8 }
 }
 
 #[derive(Debug, PartialEq)]
-pub struct CompositionSegment {
-    pub segment_type: SegmentType,
-    pub begin: u8,
-    pub end: u8,
+pub struct CompositionSegment<T> {
+    pub segment_type: SegmentType<T>,
+    pub begin: u32,
+    pub end: u32,
 }
 #[derive(Debug, PartialEq)]
-pub struct RenderSegment {
-    pub segment: CompositionSegment,
+pub struct RenderSegment<T> {
+    pub segment: CompositionSegment<T>,
     pub rendered: bool,
 }
 
-pub enum RenderResult {
-    Success { segments: Option<Vec<CompositionSegment>>, data: Option<HashMap<String, String>> },
+pub enum RenderResult<T> {
+    Success(Option<Vec<CompositionSegment<T>>>),
     MissingContext
 }
 
-pub trait Renderer {
-    fn render(&self,
-        abstract_type: &String, name: &Option<String>, data: &HashMap<String, String>,
-        begin: u8, end: u8,
-        context: &CompositionContext
-    ) -> RenderResult;
+/// Trait defining render behavior for a generic type.
+pub trait Renderer<T> {
+    /// Renders a given [T] with the timing (begin, end) and [CompositionContext].
+    /// 
+    /// Outputs a [RenderResult] containing the children [CompositionSegment]s of the input node.
+    /// Children are required to be fully contained in the timing of the input node
+    /// (`child.begin >= begin` and `child.end <= end).
+    fn render(&self, t: &T, begin: u32, end: u32, context: &CompositionContext<T>
+    ) -> RenderResult<T>;
 }
 
 #[derive(Debug)]
@@ -40,13 +59,23 @@ pub struct Node<T> {
     pub children: Vec<usize>
 }
 
-pub struct Composer<'a> {
-    pub renderer: &'a dyn Renderer
+pub struct Composer<T, K: Renderer<T>> {
+    pub renderer: K,
+    _dummy: PhantomData<T>
 }
 
-impl<'a> Composer<'a> {
-    pub fn compose(&self, seg: CompositionSegment) -> () {
-        let mut render_nodes = vec![
+impl<T, K> Composer<T, K>
+   where T: Debug, K: Renderer<T> {
+    pub fn new(renderer: K) -> Composer<T, K> {
+        Composer {
+            renderer,
+            _dummy: PhantomData,
+        }
+    }
+
+    /// Generates a render tree ([`Vec<Node<RenderSegment<T>>>`]) from a starting [CompositionSegment].
+    pub fn compose(&self, seg: CompositionSegment<T>) -> Vec<Node<RenderSegment<T>>> {
+        let mut render_nodes: Vec<Node<RenderSegment<T>>> = vec![
             Node {
                 parent: None,
                 idx: 0,
@@ -69,25 +98,36 @@ impl<'a> Composer<'a> {
 
             for idx in unrendered {
                 match &render_nodes[idx].value.segment.segment_type {
-                    SegmentType::Abstract { abstract_type, name, data  } => {
-
+                    SegmentType::Part(_) => {
+                        let mut parent = &render_nodes[idx].parent;
+                        while let Some(pidx) = parent {
+                            match &render_nodes[*pidx].value.segment.segment_type {
+                                SegmentType::Part(_) => panic!("{}", "SegmentType::Part(_) is not allowed to be nested."),
+                                _ => ()
+                            }
+                            parent = &render_nodes[*pidx].parent
+                        }
+                    },
+                    _ => (),
+                }
+                match &render_nodes[idx].value.segment.segment_type {
+                    SegmentType::Abstract(t) | SegmentType::Part(t) => {
                         let composition_context = CompositionContext {
                             tree: &render_nodes[..],
                             start: &render_nodes[idx],
                         };
 
-                        // &render_nodes[idx].value.segment
                         let result = self.renderer.render(
-                            abstract_type, name, data,
+                            t,
                             render_nodes[idx].value.segment.begin, render_nodes[idx].value.segment.end,
                             &composition_context
                         );
 
                         match result {
-                            RenderResult::Success { segments, data: new_data } => {
+                            RenderResult::Success(segments) => {
                                 match segments {
                                     Some(segs) => {
-                                        let inserts: Vec<RenderSegment> = segs.into_iter()
+                                        let inserts: Vec<RenderSegment<T>> = segs.into_iter()
                                         .map(|s| RenderSegment {
                                             rendered: false,
                                             segment: s
@@ -104,30 +144,16 @@ impl<'a> Composer<'a> {
                                                 }
                                             );
                                             render_nodes[idx].children.push(next_idx);
-                                            render_nodes[idx].value.rendered = true;
-                                        }
-                                    },
-                                    None => (),
-                                }
-
-                                match new_data {
-                                    Some(new_data) => {
-                                        match &mut render_nodes[idx].value.segment.segment_type {
-                                            SegmentType::Abstract { abstract_type: _, name: _, data } => {
-                                                println!("{:?}", data);
-                                                data.clear();
-                                                data.extend(new_data.into_iter());
-                                            },
-                                            _ => ()
                                         }
                                     },
                                     None => (),
                                 }
 
                                 println!("{:?}", render_nodes[idx]);
+                                render_nodes[idx].value.rendered = true;
                                 rendered_node_count += 1;
                             },
-                            RenderResult::MissingContext => todo!(),
+                            RenderResult::MissingContext => (),
                         }
                     },
                     _ => println!("{:?}", render_nodes[idx])
@@ -139,24 +165,31 @@ impl<'a> Composer<'a> {
             if rendered_node_count <= 0 { break; }
         }
 
-        println!("{:?}", render_nodes)
+        for node in &render_nodes {
+            println!("{:?}", node)
+        }
+
+        render_nodes
     }
 }
 
-// Type used during the render of abstract CompositionSegments which allows lookup of data from other composition tree nodes.
-// 
-// `tree` is a slice snapshot of the current composition tree
-// `start` is the node being rendered. Lookups are relative to this node.
-pub struct CompositionContext<'a> {
-    tree: &'a [Node<RenderSegment>],
-    start: &'a Node<RenderSegment>
+/// Type used during the render of abstract CompositionSegments which allows lookup
+/// of data from other composition tree nodes.
+/// 
+/// ## Fields
+/// * `tree: [[Node<RenderSegment<T>>]]` A slice snapshot of the current composition tree
+/// * `start: [Node<RenderSegment<T>>]` The node being rendered. Lookups are relative to this node.
+pub struct CompositionContext<'a, T> {
+    tree: &'a [Node<RenderSegment<T>>],
+    start: &'a Node<RenderSegment<T>>
 }
 
-impl<'a> CompositionContext<'a> {
+impl<'a, T> CompositionContext<'a, T> {
     /// Look up the deepest CompositionSegment matching `abstract_type` node whose (begin, end) bounds wholly contains the `start` node.
-    pub fn get(&self, abstract_type: &String) -> Option<&'a CompositionSegment> {
+    pub fn get<F, K>(&self, func: F) -> Option<K> 
+        where F: Fn(&T) -> Option<K> {
         let mut node_iters: Vec<usize> = vec![0];
-        let mut matching_segment: Option<&'a CompositionSegment> = None;
+        let mut matching_thing: Option<K> = None;
         
         while !node_iters.is_empty() {
             node_iters = node_iters.into_iter().filter(|idx| {
@@ -168,10 +201,10 @@ impl<'a> CompositionContext<'a> {
 
             for idx in &node_iters {
                 match &self.tree[*idx].value.segment.segment_type {
-                    SegmentType::Abstract { abstract_type: ctx_type, .. } => {
-                        if ctx_type == abstract_type {
-                            matching_segment = Some(&self.tree[*idx].value.segment)
-                        }
+                    SegmentType::Abstract(thing) => {
+                        let found = func(thing);
+
+                        if found.is_some() { matching_thing = found }
                     },
                     _ => ()
                 }
@@ -180,6 +213,6 @@ impl<'a> CompositionContext<'a> {
             node_iters = node_iters.iter().flat_map(|idx| &self.tree[*idx].children).map(|t| *t).collect();
         }
 
-        matching_segment
+        matching_thing
     }
 }
