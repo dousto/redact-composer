@@ -59,6 +59,46 @@ pub struct Node<T> {
     pub children: Vec<usize>
 }
 
+pub struct NodeIter<'a, T> {
+    tree: &'a Tree<'a, T>,
+    idx_idx: usize,
+    idxs: Vec<&'a usize>,
+}
+
+impl<'a, T> Iterator for NodeIter<'a, T> {
+    type Item = &'a Node<T>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.idxs.get(self.idx_idx) {
+            Some(idx) => {
+                let ret = &self.tree.nodes[**idx];
+                self.idxs.append(&mut ret.children.iter().collect());
+                self.idx_idx += 1;
+
+                Some(ret)
+            },
+            None => None,
+        }
+    }
+}
+
+pub struct Tree<'a, T> {
+    nodes: &'a [Node<T>]
+}
+
+impl<'a, T> Tree<'a, T> {
+    pub fn node_iter(&'a self, start: &'a Node<T>) -> NodeIter<'a, T> {
+        NodeIter { tree: &self, idx_idx: 0, idxs: vec![&start.idx] }
+    }
+
+    pub fn iter(&'a self) -> NodeIter<'a, T> {
+        match self.nodes.get(0) {
+            Some(root) => self.node_iter(root),
+            None => NodeIter { tree: &self, idx_idx: 0, idxs: vec![] },
+        }
+    }
+}
+
 pub struct Composer<T, K: Renderer<T>> {
     pub renderer: K,
     _dummy: PhantomData<T>
@@ -97,23 +137,19 @@ impl<T, K> Composer<T, K>
             let unrendered: Vec<usize> = render_nodes.iter().filter(|n| !n.value.rendered).map(|n| n.idx).collect();
 
             for idx in unrendered {
-                match &render_nodes[idx].value.segment.segment_type {
-                    SegmentType::Part(_) => {
-                        let mut parent = &render_nodes[idx].parent;
-                        while let Some(pidx) = parent {
-                            match &render_nodes[*pidx].value.segment.segment_type {
-                                SegmentType::Part(_) => panic!("{}", "SegmentType::Part(_) is not allowed to be nested."),
-                                _ => ()
-                            }
-                            parent = &render_nodes[*pidx].parent
+                if let SegmentType::Part(_) = &render_nodes[idx].value.segment.segment_type {
+                    let mut parent = &render_nodes[idx].parent;
+                    while let Some(pidx) = parent {
+                        if let SegmentType::Part(_) = &render_nodes[*pidx].value.segment.segment_type {
+                            panic!("{}", "SegmentType::Part(_) is not allowed to be nested.");
                         }
-                    },
-                    _ => (),
+                        parent = &render_nodes[*pidx].parent
+                    }
                 }
                 match &render_nodes[idx].value.segment.segment_type {
                     SegmentType::Abstract(t) | SegmentType::Part(t) => {
                         let composition_context = CompositionContext {
-                            tree: &render_nodes[..],
+                            tree: Tree { nodes: &render_nodes[..] },
                             start: &render_nodes[idx],
                         };
 
@@ -165,7 +201,7 @@ impl<T, K> Composer<T, K>
             if rendered_node_count <= 0 { break; }
         }
 
-        for node in &render_nodes {
+        for node in (Tree { nodes: &render_nodes[..] }).iter() {
             println!("{:?}", node)
         }
 
@@ -180,37 +216,29 @@ impl<T, K> Composer<T, K>
 /// * `tree: [[Node<RenderSegment<T>>]]` A slice snapshot of the current composition tree
 /// * `start: [Node<RenderSegment<T>>]` The node being rendered. Lookups are relative to this node.
 pub struct CompositionContext<'a, T> {
-    tree: &'a [Node<RenderSegment<T>>],
+    tree: Tree<'a, RenderSegment<T>>,
     start: &'a Node<RenderSegment<T>>
 }
 
-impl<'a, T> CompositionContext<'a, T> {
+impl<'a, T: Debug> CompositionContext<'a, T> {
     /// Look up the deepest CompositionSegment matching `abstract_type` node whose (begin, end) bounds wholly contains the `start` node.
-    pub fn get<F, K>(&self, func: F) -> Option<K> 
+    pub fn get<F, K: Debug>(&self, func: F) -> Option<K> 
         where F: Fn(&T) -> Option<K> {
-        let mut node_iters: Vec<usize> = vec![0];
         let mut matching_thing: Option<K> = None;
-        
-        while !node_iters.is_empty() {
-            node_iters = node_iters.into_iter().filter(|idx| {
-                let render_segment = &self.tree[*idx].value;
-                render_segment.rendered
-                && render_segment.segment.begin <= self.start.value.segment.begin
-                && render_segment.segment.end >= self.start.value.segment.end
-            }).collect();
 
-            for idx in &node_iters {
-                match &self.tree[*idx].value.segment.segment_type {
-                    SegmentType::Abstract(thing) => {
-                        let found = func(thing);
+        let iter = self.tree.iter()
+        .filter(|n| n.value.rendered
+            && n.value.segment.begin <= self.start.value.segment.begin
+            && n.value.segment.end >= self.start.value.segment.end);
 
-                        if found.is_some() { matching_thing = found }
-                    },
-                    _ => ()
+        for node in iter {
+            if let SegmentType::Abstract(thing) = &node.value.segment.segment_type {
+                let found = func(thing);
+
+                if found.is_some() {
+                    matching_thing = found
                 }
             }
-
-            node_iters = node_iters.iter().flat_map(|idx| &self.tree[*idx].children).map(|t| *t).collect();
         }
 
         matching_thing
