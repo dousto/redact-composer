@@ -16,7 +16,7 @@ pub enum SegmentType<T> {
 
     /// Represents a midi program to be used for all [`SegmentType::PlayNote`] children within
     /// its [`CompositionSegment`]'s time range.
-    Instrument { program: i8 },
+    Instrument { program: u8 },
 
     /// A note to be played with given pitch and velocity. Timing of the played note comes from
     /// its associated [`CompositionSegment`]
@@ -64,8 +64,46 @@ pub struct Node<T> {
     pub children: Vec<usize>,
 }
 
+#[derive(Debug)]
+pub struct Tree<T> {
+    nodes: Vec<Node<T>>,
+}
+
+impl<T> Tree<T> {
+    pub fn root(&self) -> Option<&Node<T>> {
+        self.nodes.get(0)
+    }
+
+    pub fn node_iter<'a>(&'a self, start: &'a Node<T>) -> NodeIter<T> {
+        NodeIter {
+            tree: &self,
+            idx_idx: 0,
+            idxs: vec![&start.idx],
+        }
+    }
+
+    pub fn iter(&self) -> NodeIter<T> {
+        match self.root() {
+            Some(root) => self.node_iter(root),
+            None => NodeIter {
+                tree: &self,
+                idx_idx: 0,
+                idxs: vec![],
+            },
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        self.nodes.len()
+    }
+
+    pub fn push(&mut self, node: Node<T>) {
+        self.nodes.push(node)
+    }
+}
+
 pub struct NodeIter<'a, T> {
-    tree: &'a Tree<'a, T>,
+    tree: &'a Tree<T>,
     idx_idx: usize,
     idxs: Vec<&'a usize>,
 }
@@ -87,28 +125,17 @@ impl<'a, T> Iterator for NodeIter<'a, T> {
     }
 }
 
-pub struct Tree<'a, T> {
-    nodes: &'a [Node<T>],
+impl<T> std::ops::Index<usize> for Tree<T> {
+    type Output = Node<T>;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.nodes[index]
+    }
 }
 
-impl<'a, T> Tree<'a, T> {
-    pub fn node_iter(&'a self, start: &'a Node<T>) -> NodeIter<'a, T> {
-        NodeIter {
-            tree: &self,
-            idx_idx: 0,
-            idxs: vec![&start.idx],
-        }
-    }
-
-    pub fn iter(&'a self) -> NodeIter<'a, T> {
-        match self.nodes.get(0) {
-            Some(root) => self.node_iter(root),
-            None => NodeIter {
-                tree: &self,
-                idx_idx: 0,
-                idxs: vec![],
-            },
-        }
+impl<T> std::ops::IndexMut<usize> for Tree<T> {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.nodes[index]
     }
 }
 
@@ -130,16 +157,18 @@ where
     }
 
     /// Generates a render tree ([`Vec<Node<RenderSegment<T>>>`]) from a starting [CompositionSegment].
-    pub fn compose(&self, seg: CompositionSegment<T>) -> Vec<Node<RenderSegment<T>>> {
-        let mut render_nodes: Vec<Node<RenderSegment<T>>> = vec![Node {
-            parent: None,
-            idx: 0,
-            value: RenderSegment {
-                rendered: false,
-                segment: seg,
-            },
-            children: vec![],
-        }];
+    pub fn compose(&self, seg: CompositionSegment<T>) -> Tree<RenderSegment<T>> {
+        let mut render_tree: Tree<RenderSegment<T>> = Tree {
+            nodes: vec![Node {
+                parent: None,
+                idx: 0,
+                value: RenderSegment {
+                    rendered: false,
+                    segment: seg,
+                },
+                children: vec![],
+            }],
+        };
 
         let mut rendered_node_count: usize;
         loop {
@@ -151,37 +180,35 @@ where
             //       Note: New nodes are always inserted as unrendered.
             // 4. Repeat until a state is reached where no additional nodes can be rendered.
             rendered_node_count = 0;
-            let unrendered: Vec<usize> = render_nodes
+
+            let unrendered: Vec<usize> = render_tree
                 .iter()
                 .filter(|n| !n.value.rendered)
                 .map(|n| n.idx)
                 .collect();
 
             for idx in unrendered {
-                if let SegmentType::Part(_) = &render_nodes[idx].value.segment.segment_type {
-                    let mut parent = &render_nodes[idx].parent;
+                if let SegmentType::Part(_) = &render_tree[idx].value.segment.segment_type {
+                    let mut parent = &render_tree[idx].parent;
                     while let Some(pidx) = parent {
-                        if let SegmentType::Part(_) =
-                            &render_nodes[*pidx].value.segment.segment_type
+                        if let SegmentType::Part(_) = &render_tree[*pidx].value.segment.segment_type
                         {
                             panic!("{}", "SegmentType::Part(_) is not allowed to be nested.");
                         }
-                        parent = &render_nodes[*pidx].parent
+                        parent = &render_tree[*pidx].parent
                     }
                 }
-                match &render_nodes[idx].value.segment.segment_type {
+                match &render_tree[idx].value.segment.segment_type {
                     SegmentType::Abstract(t) | SegmentType::Part(t) => {
                         let composition_context = CompositionContext {
-                            tree: Tree {
-                                nodes: &render_nodes[..],
-                            },
-                            start: &render_nodes[idx],
+                            tree: &render_tree,
+                            start: &render_tree[idx],
                         };
 
                         let result = self.renderer.render(
                             t,
-                            render_nodes[idx].value.segment.begin,
-                            render_nodes[idx].value.segment.end,
+                            render_tree[idx].value.segment.begin,
+                            render_tree[idx].value.segment.end,
                             &composition_context,
                         );
 
@@ -198,27 +225,27 @@ where
                                             .collect();
 
                                         for new_render in inserts {
-                                            let next_idx = render_nodes.len();
-                                            render_nodes.push(Node {
+                                            let next_idx = render_tree.len();
+                                            render_tree.push(Node {
                                                 idx: next_idx,
                                                 parent: Some(idx),
                                                 value: new_render,
                                                 children: vec![],
                                             });
-                                            render_nodes[idx].children.push(next_idx);
+                                            render_tree[idx].children.push(next_idx);
                                         }
                                     }
                                     None => (),
                                 }
 
-                                println!("{:?}", render_nodes[idx]);
-                                render_nodes[idx].value.rendered = true;
+                                println!("{:?}", render_tree[idx]);
+                                render_tree[idx].value.rendered = true;
                                 rendered_node_count += 1;
                             }
                             RenderResult::MissingContext => (),
                         }
                     }
-                    _ => println!("{:?}", render_nodes[idx]),
+                    _ => println!("{:?}", render_tree[idx]),
                 };
             }
 
@@ -228,15 +255,11 @@ where
             }
         }
 
-        for node in (Tree {
-            nodes: &render_nodes[..],
-        })
-        .iter()
-        {
+        for node in render_tree.iter() {
             println!("{:?}", node)
         }
 
-        render_nodes
+        render_tree
     }
 }
 
@@ -244,15 +267,16 @@ where
 /// of data from other composition tree nodes.
 ///
 /// ## Fields
-/// * `tree: [[Node<RenderSegment<T>>]]` A slice snapshot of the current composition tree
-/// * `start: [Node<RenderSegment<T>>]` The node being rendered. Lookups are relative to this node.
+/// * `tree: &Tree<RenderSegment<T>>` A reference to the (in-progress) composition tree
+/// * `start: &Node<RenderSegment<T>>` The node being rendered. Lookups are relative to this node.
 pub struct CompositionContext<'a, T> {
-    tree: Tree<'a, RenderSegment<T>>,
+    tree: &'a Tree<RenderSegment<T>>,
     start: &'a Node<RenderSegment<T>>,
 }
 
 impl<'a, T: Debug> CompositionContext<'a, T> {
     /// Look up the deepest CompositionSegment matching `abstract_type` node whose (begin, end) bounds wholly contains the `start` node.
+    /// TODO: If multiple matches, return the match from the node with closest common ancester to start node
     pub fn get<F, K: Debug>(&self, func: F) -> Option<K>
     where
         F: Fn(&T) -> Option<K>,

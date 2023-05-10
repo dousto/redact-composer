@@ -4,15 +4,24 @@ use midly::{
 };
 use std::{convert::identity, marker::PhantomData};
 
-use crate::composer::{Node, RenderSegment, SegmentType};
+use crate::composer::{Node, RenderSegment, SegmentType, Tree};
 
 pub struct MidiConverter<T> {
     marker: PhantomData<T>,
 }
 
 impl<T> MidiConverter<T> {
-    pub fn convert(tree: &Vec<Node<RenderSegment<T>>>) -> Smf {
-        let track_subtrees = vec![tree];
+    pub fn convert(tree: &Tree<RenderSegment<T>>) -> Smf {
+        let track_subtrees: Vec<&Node<RenderSegment<T>>> = tree
+            .iter()
+            .filter(|n| {
+                if let SegmentType::Part(_) = n.value.segment.segment_type {
+                    true
+                } else {
+                    false
+                }
+            })
+            .collect();
 
         let meta_track = vec![TrackEvent {
             delta: 0.into(),
@@ -22,9 +31,9 @@ impl<T> MidiConverter<T> {
         let mut tracks: Vec<Vec<TrackEvent>> = track_subtrees
             .iter()
             .enumerate()
-            .map(|(idx, tree)| {
+            .map(|(idx, subtree_root)| {
                 let u8idx: u8 = idx.try_into().unwrap();
-                let mut track = Self::convert_subtree(tree, u8idx + 1);
+                let mut track = Self::convert_subtree(subtree_root, tree, u8idx + 1);
                 track.insert(
                     0,
                     TrackEvent {
@@ -50,11 +59,15 @@ impl<T> MidiConverter<T> {
         }
     }
 
-    fn convert_subtree(tree: &Vec<Node<RenderSegment<T>>>, channel: u8) -> Vec<TrackEvent> {
+    fn convert_subtree<'a>(
+        subtree_root: &Node<RenderSegment<T>>,
+        tree: &'a Tree<RenderSegment<T>>,
+        channel: u8,
+    ) -> Vec<TrackEvent<'a>> {
         let mut abs_time_events: Vec<(u32, TrackEvent)> = tree
-            .iter()
+            .node_iter(subtree_root)
             .flat_map(|n| match n.value.segment.segment_type {
-                SegmentType::PlayNote { note, velocity } => Some([
+                SegmentType::PlayNote { note, velocity } => Some(vec![
                     (
                         n.value.segment.begin,
                         TrackEvent {
@@ -82,6 +95,18 @@ impl<T> MidiConverter<T> {
                         },
                     ),
                 ]),
+                SegmentType::Instrument { program } => Some(vec![(
+                    n.value.segment.begin,
+                    TrackEvent {
+                        delta: 0.into(),
+                        kind: TrackEventKind::Midi {
+                            channel: channel.into(),
+                            message: MidiMessage::ProgramChange {
+                                program: program.into(),
+                            },
+                        },
+                    },
+                )]),
                 _ => None,
             })
             .flat_map(identity)
