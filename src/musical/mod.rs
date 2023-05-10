@@ -17,17 +17,14 @@ impl Notes {
     /// 
     /// # Example
     /// 
-    /// ```
+    /// ```rust
     /// let c_major = Key { tonic: 0, scale: Scale::Major};
     /// let c_major_scale_notes = Notes::from(c_major.scale()).in_range(60..=72);
     /// assert_eq!(c_major_scale_notes, [60, 62, 64, 65, 67, 69, 71, 72]);
     /// ```
     pub fn in_range<R>(&self, range: R) -> Vec<u8>
      where R: IntoIterator<Item = u8> {
-        let mut clamped_base_notes: Vec<u8> = self.base_notes.iter().map(|n| n % 12).collect();
-        clamped_base_notes.sort();
-        clamped_base_notes.dedup();
-        range.into_iter().filter(|n| clamped_base_notes.contains(&(n % 12))).collect()
+        range.into_iter().filter(|n| self.base_notes.contains(&(n % 12))).collect()
     }
 }
 
@@ -40,9 +37,14 @@ impl<T, K> From<T> for Notes
     /// ```rust
     /// let notes = Notes.from([1,2,3]);
     /// ```
-    fn from(value: T) -> Self {
+    fn from(value: T) -> Self
+        where T: IntoIterator<Item = K> {
+        let mut clamped_base_notes: Vec<u8> = value.into_iter().map(|n| n.into() % 12).collect();
+        clamped_base_notes.sort();
+        clamped_base_notes.dedup();
+
         Notes {
-            base_notes: value.into_iter().map(<K>::into).collect()
+            base_notes: clamped_base_notes
         }
     }
 }
