@@ -18,6 +18,7 @@ impl Notes {
     /// # Example
     ///
     /// ```rust
+    /// # use redact_composer::musical::{Key, Scale, Notes};
     /// let c_major = Key { tonic: 0, scale: Scale::Major};
     /// let c_major_scale_notes = Notes::from(c_major.scale()).in_range(60..=72);
     /// assert_eq!(c_major_scale_notes, [60, 62, 64, 65, 67, 69, 71, 72]);
@@ -43,7 +44,8 @@ where
     ///
     /// # Example
     /// ```rust
-    /// let notes = Notes.from([1,2,3]);
+    /// # use redact_composer::musical::{Notes};
+    /// let notes = Notes::from([1,2,3]);
     /// ```
     fn from(value: T) -> Self
     where
@@ -83,13 +85,18 @@ impl Key {
     ///
     /// # Example
     /// ```rust
+    /// # use redact_composer::musical::{Key, Scale, Chord};
     /// let c_major = Key { tonic: 0, scale: Scale::Major};
     /// let c_major_chord_notes = c_major.chord(Chord::I);
-    /// assert_eq(c_major_chord_notes, [0, 2, 4]); // C, E, G
+    /// assert_eq!(c_major_chord_notes, [0, 4, 7]); // C, E, G
     /// ```
     pub fn chord(&self, chord: Chord) -> Vec<u8> {
         let scale = self.scale();
-        chord.degrees().iter().map(|d| scale[*d as usize]).collect()
+        chord
+            .degrees()
+            .iter()
+            .map(|d| scale[usize::from(*d)])
+            .collect()
     }
 }
 
@@ -97,30 +104,37 @@ impl Key {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Chord {
     /// ```rust
+    /// # use redact_composer::musical::{Chord};
     /// assert_eq!(Chord::I.degrees(), vec![0, 2, 4])
     /// ```
     I,
     /// ```rust
+    /// # use redact_composer::musical::{Chord};
     /// assert_eq!(Chord::II.degrees(), vec![1, 3, 5])
     /// ```
     II,
     /// ```rust
+    /// # use redact_composer::musical::{Chord};
     /// assert_eq!(Chord::III.degrees(), vec![2, 4, 6])
     /// ```
     III,
     /// ```rust
+    /// # use redact_composer::musical::{Chord};
     /// assert_eq!(Chord::IV.degrees(), vec![3, 5, 0])
     /// ```
     IV,
     /// ```rust
+    /// # use redact_composer::musical::{Chord};
     /// assert_eq!(Chord::V.degrees(), vec![4, 6, 1])
     /// ```
     V,
     /// ```rust
+    /// # use redact_composer::musical::{Chord};
     /// assert_eq!(Chord::VI.degrees(), vec![5, 0, 2])
     /// ```
     VI,
     /// ```rust
+    /// # use redact_composer::musical::{Chord};
     /// assert_eq!(Chord::VII.degrees(), vec![6, 1, 3])
     /// ```
     VII,
@@ -220,18 +234,22 @@ impl From<&String> for Chord {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Scale {
     /// ```rust
+    /// # use redact_composer::musical::{Scale};
     /// assert_eq!(Scale::Major.relative_pitches(), vec![0, 2, 4, 5, 7, 9, 11])
     /// ```
     Major,
     /// ```rust
+    /// # use redact_composer::musical::{Scale};
     /// assert_eq!(Scale::Minor.relative_pitches(), vec![0, 2, 3, 5, 7, 9, 10])
     /// ```
     Minor,
     /// ```rust
+    /// # use redact_composer::musical::{Scale};
     /// assert_eq!(Scale::NaturalMinor.relative_pitches(), vec![0, 2, 3, 5, 7, 8, 10])
     /// ```
     NaturalMinor,
     /// ```rust
+    /// # use redact_composer::musical::{Scale};
     /// assert_eq!(Scale::HarmonicMinor.relative_pitches(), vec![0, 2, 3, 5, 7, 8, 11])
     /// ```
     HarmonicMinor,
