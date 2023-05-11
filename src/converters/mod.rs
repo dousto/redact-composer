@@ -14,41 +14,30 @@ impl<T> MidiConverter<T> {
     pub fn convert(tree: &Tree<RenderSegment<T>>) -> Smf {
         let track_subtrees: Vec<&Node<RenderSegment<T>>> = tree
             .iter()
-            .filter(|n| {
-                if let SegmentType::Part(_) = n.value.segment.segment_type {
-                    true
-                } else {
-                    false
-                }
+            .filter(|n| match n.value.segment.segment_type {
+                SegmentType::Part(_) => true,
+                _ => false,
             })
             .collect();
 
-        let meta_track = vec![TrackEvent {
-            delta: 0.into(),
-            kind: TrackEventKind::Meta(MetaMessage::Tempo(500_000.into())),
-        }];
-
-        let mut tracks: Vec<Vec<TrackEvent>> = track_subtrees
+        let tracks: Vec<Vec<TrackEvent>> = track_subtrees
             .iter()
             .enumerate()
             .map(|(idx, subtree_root)| {
                 let u8idx: u8 = idx.try_into().unwrap();
-                let mut track = Self::convert_subtree(subtree_root, tree, u8idx + 1);
-                track.insert(
-                    0,
-                    TrackEvent {
-                        delta: 0.into(),
-                        kind: TrackEventKind::Midi {
-                            channel: u8idx.into(),
-                            message: MidiMessage::ProgramChange { program: 0.into() },
+                let mut track = Self::convert_subtree(subtree_root, tree, u8idx);
+                if u8idx == 0 {
+                    track.insert(
+                        0,
+                        TrackEvent {
+                            delta: 0.into(),
+                            kind: TrackEventKind::Meta(MetaMessage::Tempo(500_000.into())),
                         },
-                    },
-                );
+                    )
+                }
                 track
             })
             .collect();
-
-        tracks.insert(0, meta_track);
 
         Smf {
             header: Header {
@@ -115,9 +104,9 @@ impl<T> MidiConverter<T> {
         abs_time_events.sort_by_key(|k| k.0);
 
         let mut curr_time: u32 = 0;
-        for abs_event in &mut abs_time_events {
-            abs_event.1.delta = (abs_event.0 - curr_time).into();
-            curr_time = abs_event.0;
+        for (timing, track_event) in &mut abs_time_events {
+            track_event.delta = (*timing - curr_time).into();
+            curr_time = *timing;
         }
 
         abs_time_events.iter().map(|t| t.1).collect()
