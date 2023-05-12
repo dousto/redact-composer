@@ -290,7 +290,7 @@ impl<'a, T: Debug> CompositionContext<'a, T> {
     /// TODO: If multiple matches, return the match from the node with closest common ancester to start node
     pub fn get<F, K: Debug>(&self, func: F) -> Option<K>
     where
-        F: Fn(&T) -> Option<K>,
+        F: Fn(&'a T) -> Option<K>,
     {
         let mut matching_thing: Option<K> = None;
 
