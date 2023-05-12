@@ -93,12 +93,30 @@ impl<T> Tree<T> {
         }
     }
 
-    pub fn len(&self) -> usize {
-        self.nodes.len()
-    }
+    pub fn insert(&mut self, item: T, parent_idx: Option<usize>) -> usize {
+        let new_idx = self.nodes.len();
+        self.nodes.push(Node {
+            idx: new_idx,
+            parent: parent_idx,
+            value: item,
+            children: vec![],
+        });
 
-    pub fn push(&mut self, node: Node<T>) {
-        self.nodes.push(node)
+        if let Some(parent_idx) = parent_idx {
+            self.nodes[parent_idx].children.push(new_idx)
+        }
+
+        new_idx
+    }
+}
+
+impl<'a, T> IntoIterator for &'a Tree<T> {
+    type Item = &'a Node<T>;
+
+    type IntoIter = NodeIter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
     }
 }
 
@@ -225,14 +243,7 @@ where
                                             .collect();
 
                                         for new_render in inserts {
-                                            let next_idx = render_tree.len();
-                                            render_tree.push(Node {
-                                                idx: next_idx,
-                                                parent: Some(idx),
-                                                value: new_render,
-                                                children: vec![],
-                                            });
-                                            render_tree[idx].children.push(next_idx);
+                                            render_tree.insert(new_render, Some(idx));
                                         }
                                     }
                                     None => (),
@@ -255,7 +266,7 @@ where
             }
         }
 
-        for node in render_tree.iter() {
+        for node in &render_tree {
             println!("{:?}", node)
         }
 
