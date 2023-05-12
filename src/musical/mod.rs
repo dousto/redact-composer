@@ -90,7 +90,7 @@ impl Key {
     /// let c_major_chord_notes = c_major.chord(Chord::I);
     /// assert_eq!(c_major_chord_notes, [0, 4, 7]); // C, E, G
     /// ```
-    pub fn chord(&self, chord: Chord) -> Vec<u8> {
+    pub fn chord(&self, chord: &Chord) -> Vec<u8> {
         let scale = self.scale();
         chord
             .degrees()
