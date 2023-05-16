@@ -1,5 +1,7 @@
 use std::fmt;
 
+pub mod midi;
+
 #[cfg(test)]
 mod test;
 
@@ -31,6 +33,10 @@ impl Notes {
             .into_iter()
             .filter(|n| self.base_notes.contains(&(n % 12)))
             .collect()
+    }
+
+    pub fn base_note(note: &u8) -> u8 {
+        note % 12
     }
 }
 

@@ -5,3 +5,6 @@ edition = "2021"
 
 [dependencies]
 midly = { version = "0.5.3", default-features = false, features = ["std"] }
+num = "0.4.0"
+num-derive = "0.3.3"
+num-traits = "0.2.15"
