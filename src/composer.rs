@@ -70,6 +70,10 @@ pub struct Tree<T> {
 }
 
 impl<T> Tree<T> {
+    pub fn new() -> Tree<T> {
+        Tree { nodes: vec![] }
+    }
+
     pub fn root(&self) -> Option<&Node<T>> {
         self.nodes.get(0)
     }
@@ -176,17 +180,14 @@ where
 
     /// Generates a render tree ([`Vec<Node<RenderSegment<T>>>`]) from a starting [CompositionSegment].
     pub fn compose(&self, seg: CompositionSegment<T>) -> Tree<RenderSegment<T>> {
-        let mut render_tree: Tree<RenderSegment<T>> = Tree {
-            nodes: vec![Node {
-                parent: None,
-                idx: 0,
-                value: RenderSegment {
-                    rendered: false,
-                    segment: seg,
-                },
-                children: vec![],
-            }],
-        };
+        let mut render_tree = Tree::new();
+        render_tree.insert(
+            RenderSegment {
+                rendered: false,
+                segment: seg,
+            },
+            None,
+        );
 
         let mut rendered_node_count: usize;
         loop {
