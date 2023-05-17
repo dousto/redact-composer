@@ -238,7 +238,11 @@ where
                                         let inserts: Vec<RenderSegment<T>> = segs
                                             .into_iter()
                                             .map(|s| RenderSegment {
-                                                rendered: false,
+                                                rendered: match s.segment_type {
+                                                    SegmentType::Abstract(_)
+                                                    | SegmentType::Part(_) => false,
+                                                    _ => true,
+                                                },
                                                 segment: s,
                                             })
                                             .collect();
@@ -250,14 +254,14 @@ where
                                     None => (),
                                 }
 
-                                println!("{:?}", render_tree[idx]);
                                 render_tree[idx].value.rendered = true;
                                 rendered_node_count += 1;
+                                println!("{:?}", render_tree[idx]);
                             }
                             RenderResult::MissingContext => (),
                         }
                     }
-                    _ => println!("{:?}", render_tree[idx]),
+                    _ => (),
                 };
             }
 
