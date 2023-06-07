@@ -1,5 +1,7 @@
 use std::fmt;
 
+use crate::composer;
+
 pub mod midi;
 
 #[cfg(test)]
@@ -68,13 +70,14 @@ where
 }
 
 /// Represents a key signature via a tonic ([u8] value in `0..=11`) and [Scale] (e.g. Major/Minor).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Hash, Clone, Copy, PartialEq, Eq)]
 pub struct Key {
     /// First note of the scale. (`tonic == 0` represents C)
     pub tonic: u8,
     /// The interval sequence (relative to the `tonic`) defining the base notes this [Key].
     pub scale: Scale,
 }
+impl composer::ConcreteSegmentType for Key {}
 
 impl Key {
     /// Returns the scale notes for this [Key], starting from the `tonic` and using relative intervals
@@ -93,7 +96,7 @@ impl Key {
     /// ```rust
     /// # use redact_composer::musical::{Key, Scale, Chord};
     /// let c_major = Key { tonic: 0, scale: Scale::Major};
-    /// let c_major_chord_notes = c_major.chord(Chord::I);
+    /// let c_major_chord_notes = c_major.chord(&Chord::I);
     /// assert_eq!(c_major_chord_notes, [0, 4, 7]); // C, E, G
     /// ```
     pub fn chord(&self, chord: &Chord) -> Vec<u8> {
@@ -107,7 +110,7 @@ impl Key {
 }
 
 /// A type representing the diatonic harmony chord variations based on [heptatonic (7-note) scales](https://en.wikipedia.org/wiki/Heptatonic_scale).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Chord {
     /// ```rust
     /// # use redact_composer::musical::{Chord};
@@ -145,6 +148,7 @@ pub enum Chord {
     /// ```
     VII,
 }
+impl composer::ConcreteSegmentType for Chord {}
 
 impl Chord {
     const I_STR: &str = "I";
@@ -237,7 +241,7 @@ impl From<&String> for Chord {
 }
 
 /// A type representing the sequence of intervals defining the notes in a [Key].
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Hash, Clone, Copy, PartialEq, Eq)]
 pub enum Scale {
     /// ```rust
     /// # use redact_composer::musical::{Scale};
@@ -260,6 +264,7 @@ pub enum Scale {
     /// ```
     HarmonicMinor,
 }
+impl composer::ConcreteSegmentType for Scale {}
 
 impl Scale {
     const MAJOR_STR: &str = "Major";
