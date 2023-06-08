@@ -13,8 +13,16 @@ pub mod context;
 pub mod render;
 
 /// The base trait for any object that will be used as a composition element.
-/// It should implement [`SegmentType::render`], or otherwise use [`ConcreteSegmentType`].
+/// It should implement [`SegmentType::render`], or otherwise implement [`ConcreteSegmentType`].
 pub trait SegmentType: Debug + AsAny + 'static {
+    /// Returns a [`bool`] indicating whether this [`SegmentType`] should render. Generally this
+    /// is not needed to be implemented, as any [`SegmentType`] that doesn't render should just
+    /// implement the [`ConcreteSegmentType`] trait.
+    fn renderable(&self) -> bool {
+        true
+    }
+
+    /// Defines how the segment will render (producing child [`CompositionSegment`]s).
     fn render(&self, begin: i32, end: i32, context: CompositionContext) -> RenderResult;
 }
 
@@ -31,10 +39,14 @@ impl<T: Any + Debug + 'static> AsAny for T {
 /// Trait used to mark [`SegmentType`]s which do not render anything.
 pub trait ConcreteSegmentType {}
 
-impl<T: 'static> SegmentType for T
+impl<T> SegmentType for T
 where
-    T: ConcreteSegmentType + Debug,
+    T: ConcreteSegmentType + Debug + 'static,
 {
+    fn renderable(&self) -> bool {
+        false
+    }
+
     fn render(&self, _begin: i32, _end: i32, _context: CompositionContext) -> RenderResult {
         RenderResult::Success(None)
     }
@@ -193,23 +205,24 @@ impl Composer {
                 let result = render_tree[idx].value.segment.render(composition_context);
 
                 match result {
-                    RenderResult::Success(opt_segments) => {
-                        if let Some(segments) = opt_segments {
-                            let inserts: Vec<RenderSegment> = segments
-                                .into_iter()
-                                .map(|s| RenderSegment {
-                                    segment: s,
-                                    seed: rng.next_u64(),
-                                    rendered: false,
-                                })
-                                .collect();
-                            // segments.into_iter().map(RenderSegment::from).collect();
+                    RenderResult::Success(Some(segments)) => {
+                        let inserts: Vec<RenderSegment> = segments
+                            .into_iter()
+                            .map(|s| RenderSegment {
+                                rendered: !s.segment_type.renderable(),
+                                segment: s,
+                                seed: rng.next_u64(),
+                            })
+                            .collect();
 
-                            for new_render in inserts {
-                                render_tree.insert(new_render, Some(idx));
-                            }
+                        for new_render in inserts {
+                            render_tree.insert(new_render, Some(idx));
                         }
 
+                        render_tree[idx].value.rendered = true;
+                        rendered_node_count += 1;
+                    }
+                    RenderResult::Success(None) => {
                         render_tree[idx].value.rendered = true;
                         rendered_node_count += 1;
                     }
