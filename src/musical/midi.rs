@@ -339,6 +339,10 @@ impl Instruments {
             - Self::tonal_percussive()
             - Self::sound_fx()
             - Self::synth_fx()
+            - Instrument::Timpani
+            - Instrument::LeadFifths
+            - Instrument::OrchestraHit
+            - Instrument::Kalimba
     }
 }
 
