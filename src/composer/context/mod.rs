@@ -240,181 +240,7 @@ impl<'a> CompositionContext<'a> {
     }
 }
 
-pub enum TimeRelation {
-    /// Describes a relationship for a target whose time range fully includes the reference time range.
-    During((Bound<i32>, Bound<i32>)),
-    /// Describes a relationship for a target whose time range fully shares some or all of the reference time range.
-    Overlapping((Bound<i32>, Bound<i32>)),
-    /// Describes a relationship for a target whose time range is fully enclosed within the reference time range.
-    Within((Bound<i32>, Bound<i32>)),
-    /// Describes a relationship for a target whose time range ends before/at the reference time range begin.
-    Before((Bound<i32>, Bound<i32>)),
-    /// Describes a relationship for a target whose time range starts after/at the reference time range end.
-    After((Bound<i32>, Bound<i32>)),
-}
-
-impl TimeRelation {
-    /// Describes a relationship for a target whose time range fully includes the reference time range.
-    pub fn during<T: RangeBounds<i32>>(ref_range: T) -> TimeRelation {
-        Self::During((
-            ref_range.start_bound().cloned(),
-            ref_range.end_bound().cloned(),
-        ))
-    }
-
-    /// Describes a relationship for a target whose time range fully shares some or all of the reference time range.
-    pub fn overlapping<T: RangeBounds<i32>>(ref_range: T) -> TimeRelation {
-        Self::Overlapping((
-            ref_range.start_bound().cloned(),
-            ref_range.end_bound().cloned(),
-        ))
-    }
-
-    /// Describes a relationship for a target whose time range is fully enclosed within the reference time range.
-    pub fn within<T: RangeBounds<i32>>(ref_range: T) -> TimeRelation {
-        Self::Within((
-            ref_range.start_bound().cloned(),
-            ref_range.end_bound().cloned(),
-        ))
-    }
-
-    /// Describes a relationship for a target whose time range ends before/at the reference time range begin.
-    pub fn before<T: RangeBounds<i32>>(ref_range: T) -> TimeRelation {
-        Self::Before((
-            ref_range.start_bound().cloned(),
-            ref_range.end_bound().cloned(),
-        ))
-    }
-
-    /// Describes a relationship for a target whose time range starts after/at the reference time range end.
-    pub fn after<T: RangeBounds<i32>>(ref_range: T) -> TimeRelation {
-        Self::After((
-            ref_range.start_bound().cloned(),
-            ref_range.end_bound().cloned(),
-        ))
-    }
-
-    fn convert_to_inclusive_bounds<T: RangeBounds<i32>>(bounds: T) -> (Bound<i32>, Bound<i32>) {
-        (
-            match bounds.start_bound() {
-                Bound::Included(t) => Bound::Included(*t),
-                Bound::Excluded(t) => Bound::Included(t + 1),
-                Bound::Unbounded => Bound::Unbounded,
-            },
-            match bounds.end_bound() {
-                Bound::Included(t) => Bound::Included(*t),
-                Bound::Excluded(t) => Bound::Included(t - 1),
-                Bound::Unbounded => Bound::Unbounded,
-            },
-        )
-    }
-
-    // Determines if a target time range matches this relationship.
-    fn matches<T: RangeBounds<i32>>(&self, target_range: T) -> bool {
-        let target_range = Self::convert_to_inclusive_bounds((
-            target_range.start_bound(),
-            target_range.end_bound(),
-        ));
-
-        match self {
-            TimeRelation::During(ref_range) => {
-                let ref_range = Self::convert_to_inclusive_bounds(*ref_range);
-
-                // Emulate `ref_range.start >= target_range.start  && ref_range.end <= target_range.end` accounting for all range bound types (ex-/inclusive/unbounded)
-                let start_satisfied = match ref_range.0 {
-                    Bound::Included(rin) => {
-                        let start_range = (Bound::Unbounded, Bound::Included(rin));
-                        match target_range.0 {
-                            Bound::Included(tin) => start_range.contains(&tin),
-                            Bound::Unbounded => true,
-                            _ => panic!("Unexpected range bound: {:?}", target_range.0),
-                        }
-                    }
-                    Bound::Unbounded => {
-                        if let Bound::Unbounded = target_range.0 {
-                            true
-                        } else {
-                            false
-                        }
-                    }
-                    _ => panic!("Unexpected range bound: {:?}", ref_range.0),
-                };
-
-                let end_satisfied = match ref_range.1 {
-                    Bound::Included(rin) => {
-                        let end_range = (Bound::Included(rin), Bound::Unbounded);
-                        match target_range.1 {
-                            Bound::Included(tin) => end_range.contains(&tin),
-                            Bound::Unbounded => true,
-                            _ => panic!("Unexpected range bound: {:?}", target_range.1),
-                        }
-                    }
-                    Bound::Unbounded => {
-                        if let Bound::Unbounded = target_range.1 {
-                            true
-                        } else {
-                            false
-                        }
-                    }
-                    _ => panic!("Unexpected range bound: {:?}", ref_range.1),
-                };
-
-                return start_satisfied && end_satisfied;
-            }
-            TimeRelation::Overlapping(ref_range) => {
-                let ref_range = Self::convert_to_inclusive_bounds(*ref_range);
-                let start_satisfied = match target_range.1 {
-                    Bound::Included(tin) => ref_range.contains(&tin),
-                    Bound::Unbounded => false,
-                    _ => panic!("Unexpected range bound: {:?}", target_range.1),
-                };
-
-                let end_satisfied = match target_range.0 {
-                    Bound::Included(tin) => ref_range.contains(&tin),
-                    Bound::Unbounded => false,
-                    _ => panic!("Unexpected range bound: {:?}", target_range.0),
-                };
-
-                start_satisfied || end_satisfied || Self::during(ref_range).matches(target_range)
-            }
-            TimeRelation::Within(ref_range) => {
-                // Inversion of TimeRelation::During
-                return TimeRelation::During(target_range).matches(*ref_range);
-            }
-            TimeRelation::Before(ref_range) => {
-                let ref_range = Self::convert_to_inclusive_bounds(*ref_range);
-                match ref_range.0 {
-                    Bound::Included(rin) => {
-                        let before_range = (Bound::Unbounded, Bound::Excluded(rin));
-                        match target_range.1 {
-                            Bound::Included(tin) => before_range.contains(&tin),
-                            Bound::Unbounded => false,
-                            _ => panic!("Unexpected range bound: {:?}", target_range.1),
-                        }
-                    }
-                    Bound::Unbounded => false,
-                    _ => panic!("Unexpected range bound: {:?}", target_range.0),
-                }
-            }
-            TimeRelation::After(ref_range) => {
-                let ref_range = Self::convert_to_inclusive_bounds(*ref_range);
-                match ref_range.1 {
-                    Bound::Included(rin) => {
-                        let after_range = (Bound::Excluded(rin), Bound::Unbounded);
-                        match target_range.0 {
-                            Bound::Included(tin) => after_range.contains(&tin),
-                            Bound::Unbounded => false,
-                            _ => panic!("Unexpected range bound: {:?}", target_range.0),
-                        }
-                    }
-                    Bound::Unbounded => false,
-                    _ => panic!("Unexpected range bound: {:?}", ref_range.1),
-                }
-            }
-        }
-    }
-}
-
+#[derive(Debug)]
 pub enum SearchScope {
     /// Describes the relationship for a target that is a descendent of a particular ancestor of the reference node type.
     WithinAncestor(TypeId),
@@ -438,5 +264,214 @@ impl SearchScope {
     /// Describes a scope that has no restrictions.
     pub fn anywhere() -> SearchScope {
         SearchScope::Anywhere
+    }
+}
+
+pub enum TimeRelation {
+    /// Describes a relationship for a target whose time range fully includes the reference time range.
+    During((Bound<i32>, Bound<i32>)),
+    /// Describes a relationship for a target whose time range shares any part of the reference time range.
+    Overlapping((Bound<i32>, Bound<i32>)),
+    /// Describes a relationship for a target whose time range is fully enclosed within the reference time range.
+    Within((Bound<i32>, Bound<i32>)),
+    /// Describes a relationship for a target whose time range begins within the reference time range.
+    BeginningWithin((Bound<i32>, Bound<i32>)),
+    /// Describes a relationship for a target whose time range ends within the reference time range.
+    EndingWithin((Bound<i32>, Bound<i32>)),
+    /// Describes a relationship for a target whose time range ends before/at the reference time range begin.
+    Before((Bound<i32>, Bound<i32>)),
+    /// Describes a relationship for a target whose time range starts after/at the reference time range end.
+    After((Bound<i32>, Bound<i32>)),
+}
+
+impl TimeRelation {
+    /// Describes a relationship for a target whose time range fully includes the reference time range.
+    pub fn during<T: RangeBounds<i32>>(ref_range: T) -> TimeRelation {
+        Self::During((
+            ref_range.start_bound().cloned(),
+            ref_range.end_bound().cloned(),
+        ))
+    }
+
+    /// Describes a relationship for a target whose time range shares any part of the reference time range.
+    pub fn overlapping<T: RangeBounds<i32>>(ref_range: T) -> TimeRelation {
+        Self::Overlapping((
+            ref_range.start_bound().cloned(),
+            ref_range.end_bound().cloned(),
+        ))
+    }
+
+    /// Describes a relationship for a target whose time range is fully enclosed within the reference time range.
+    pub fn within<T: RangeBounds<i32>>(ref_range: T) -> TimeRelation {
+        Self::Within((
+            ref_range.start_bound().cloned(),
+            ref_range.end_bound().cloned(),
+        ))
+    }
+
+    /// Describes a relationship for a target whose time range ends within the reference time range.
+    pub fn beginning_within<T: RangeBounds<i32>>(ref_range: T) -> TimeRelation {
+        Self::BeginningWithin((
+            ref_range.start_bound().cloned(),
+            ref_range.end_bound().cloned(),
+        ))
+    }
+
+    /// Describes a relationship for a target whose time range ends within the reference time range.
+    pub fn ending_within<T: RangeBounds<i32>>(ref_range: T) -> TimeRelation {
+        Self::EndingWithin((
+            ref_range.start_bound().cloned(),
+            ref_range.end_bound().cloned(),
+        ))
+    }
+
+    /// Describes a relationship for a target whose time range ends before/at the reference time range begin.
+    pub fn before<T: RangeBounds<i32>>(ref_range: T) -> TimeRelation {
+        Self::Before((
+            ref_range.start_bound().cloned(),
+            ref_range.end_bound().cloned(),
+        ))
+    }
+
+    /// Describes a relationship for a target whose time range starts after/at the reference time range end.
+    pub fn after<T: RangeBounds<i32>>(ref_range: T) -> TimeRelation {
+        Self::After((
+            ref_range.start_bound().cloned(),
+            ref_range.end_bound().cloned(),
+        ))
+    }
+
+    // Determines if a target time range matches this relationship.
+    fn matches<T: RangeBounds<i32>>(&self, target_range: T) -> bool {
+        let (tar_begin, tar_end) = BoundType::bounds_from(&target_range);
+        let (ref_begin, ref_end) = self.bounds();
+
+        match self {
+            TimeRelation::During(_) => {
+                tar_begin.is_before(&ref_begin) && tar_end.is_after(&ref_end)
+            }
+            TimeRelation::Overlapping(_) => {
+                !tar_end.is_before(&ref_begin) && !tar_begin.is_after(&ref_end)
+            }
+            TimeRelation::Within(_) => {
+                ref_begin.is_before(&tar_begin) && ref_end.is_after(&tar_end)
+            }
+            TimeRelation::BeginningWithin(_) => {
+                !tar_begin.is_after(&ref_end) && tar_begin.is_after(&ref_begin)
+            }
+            TimeRelation::EndingWithin(_) => {
+                !tar_end.is_before(&ref_begin) && tar_end.is_before(&ref_end)
+            }
+            TimeRelation::Before(_) => tar_end.is_before(&ref_begin),
+            TimeRelation::After(_) => tar_begin.is_after(&ref_end),
+        }
+    }
+
+    fn bounds(&self) -> (BoundType, BoundType) {
+        match self {
+            TimeRelation::During(bounds) => BoundType::bounds_from(bounds),
+            TimeRelation::Overlapping(bounds) => BoundType::bounds_from(bounds),
+            TimeRelation::Within(bounds) => BoundType::bounds_from(bounds),
+            TimeRelation::BeginningWithin(bounds) => BoundType::bounds_from(bounds),
+            TimeRelation::EndingWithin(bounds) => BoundType::bounds_from(bounds),
+            TimeRelation::Before(bounds) => BoundType::bounds_from(bounds),
+            TimeRelation::After(bounds) => BoundType::bounds_from(bounds),
+        }
+    }
+}
+
+#[derive(Debug)]
+enum BoundType {
+    Start(Bound<i32>),
+    End(Bound<i32>),
+}
+
+impl BoundType {
+    fn bounds_from(range: &impl RangeBounds<i32>) -> (BoundType, BoundType) {
+        (
+            BoundType::Start(range.start_bound().cloned()),
+            BoundType::End(range.end_bound().cloned()),
+        )
+    }
+
+    fn is_after(&self, other: &BoundType) -> bool {
+        other.is_before(self)
+    }
+
+    // Here lies all the nastiness..
+    fn is_before(&self, other: &BoundType) -> bool {
+        match (self, other) {
+            // Bounded cases
+            (BoundType::Start(Bound::Excluded(start)), BoundType::Start(Bound::Included(end))) => {
+                start <= &(end - 1)
+            }
+            (BoundType::Start(Bound::Excluded(start)), BoundType::End(Bound::Excluded(end))) => {
+                start <= &(end - 1)
+            }
+            (BoundType::End(Bound::Included(start)), BoundType::Start(Bound::Included(end))) => {
+                start <= &(end - 1)
+            }
+            (BoundType::End(Bound::Included(start)), BoundType::End(Bound::Excluded(end))) => {
+                start <= &(end - 1)
+            }
+            (BoundType::Start(Bound::Included(start)), BoundType::Start(Bound::Included(end))) => {
+                start <= end
+            }
+            (BoundType::Start(Bound::Included(start)), BoundType::End(Bound::Excluded(end))) => {
+                start <= end
+            }
+            (BoundType::Start(Bound::Excluded(start)), BoundType::Start(Bound::Excluded(end))) => {
+                start <= end
+            }
+            (BoundType::Start(Bound::Excluded(start)), BoundType::End(Bound::Included(end))) => {
+                start <= end
+            }
+            (BoundType::End(Bound::Included(start)), BoundType::Start(Bound::Excluded(end))) => {
+                start <= end
+            }
+            (BoundType::End(Bound::Included(start)), BoundType::End(Bound::Included(end))) => {
+                start <= end
+            }
+            (BoundType::End(Bound::Excluded(start)), BoundType::Start(Bound::Included(end))) => {
+                start <= end
+            }
+            (BoundType::End(Bound::Excluded(start)), BoundType::End(Bound::Excluded(end))) => {
+                start <= end
+            }
+            (BoundType::Start(Bound::Included(start)), BoundType::Start(Bound::Excluded(end))) => {
+                start <= &(end + 1)
+            }
+            (BoundType::Start(Bound::Included(start)), BoundType::End(Bound::Included(end))) => {
+                start <= &(end + 1)
+            }
+            (BoundType::End(Bound::Excluded(start)), BoundType::Start(Bound::Excluded(end))) => {
+                start <= &(end + 1)
+            }
+            (BoundType::End(Bound::Excluded(start)), BoundType::End(Bound::Included(end))) => {
+                start <= &(end + 1)
+            }
+
+            // Unbounded cases
+            (BoundType::Start(Bound::Included(_)), BoundType::Start(Bound::Unbounded)) => false,
+            (BoundType::Start(Bound::Excluded(_)), BoundType::Start(Bound::Unbounded)) => false,
+            (BoundType::End(Bound::Included(_)), BoundType::Start(Bound::Unbounded)) => false,
+            (BoundType::End(Bound::Excluded(_)), BoundType::Start(Bound::Unbounded)) => false,
+            (BoundType::End(Bound::Unbounded), BoundType::Start(Bound::Included(_))) => false,
+            (BoundType::End(Bound::Unbounded), BoundType::Start(Bound::Excluded(_))) => false,
+            (BoundType::End(Bound::Unbounded), BoundType::Start(Bound::Unbounded)) => false,
+            (BoundType::End(Bound::Unbounded), BoundType::End(Bound::Included(_))) => false,
+            (BoundType::End(Bound::Unbounded), BoundType::End(Bound::Excluded(_))) => false,
+            (BoundType::Start(Bound::Included(_)), BoundType::End(Bound::Unbounded)) => true,
+            (BoundType::Start(Bound::Excluded(_)), BoundType::End(Bound::Unbounded)) => true,
+            (BoundType::Start(Bound::Unbounded), BoundType::Start(Bound::Included(_))) => true,
+            (BoundType::Start(Bound::Unbounded), BoundType::Start(Bound::Excluded(_))) => true,
+            (BoundType::Start(Bound::Unbounded), BoundType::Start(Bound::Unbounded)) => true,
+            (BoundType::Start(Bound::Unbounded), BoundType::End(Bound::Included(_))) => true,
+            (BoundType::Start(Bound::Unbounded), BoundType::End(Bound::Excluded(_))) => true,
+            (BoundType::Start(Bound::Unbounded), BoundType::End(Bound::Unbounded)) => true,
+            (BoundType::End(Bound::Included(_)), BoundType::End(Bound::Unbounded)) => true,
+            (BoundType::End(Bound::Excluded(_)), BoundType::End(Bound::Unbounded)) => true,
+            (BoundType::End(Bound::Unbounded), BoundType::End(Bound::Unbounded)) => true,
+        }
     }
 }

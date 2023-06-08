@@ -203,6 +203,78 @@ fn within() {
 }
 
 #[test]
+fn beginning_within() {
+    let test_cases = vec![
+        (((Unbounded, Unbounded), (Excluded(10), Unbounded)), true),
+        (((Unbounded, Unbounded), (Unbounded, Unbounded)), true),
+        (((Included(1), Unbounded), (Included(1), Unbounded)), true),
+        (((Included(1), Unbounded), (Included(0), Unbounded)), false),
+        (((Unbounded, Included(1)), (Included(1), Unbounded)), true),
+        (((Unbounded, Included(1)), (Included(2), Unbounded)), false),
+        (
+            ((Included(1), Excluded(10)), (Excluded(8), Included(10))),
+            true,
+        ),
+        (
+            ((Included(1), Excluded(10)), (Excluded(9), Included(10))),
+            false,
+        ),
+        (
+            ((Included(1), Excluded(10)), (Excluded(2), Included(10))),
+            true,
+        ),
+    ];
+
+    for ((ref_range, target_range), expectation) in test_cases {
+        let result = TimeRelation::beginning_within(ref_range).matches(target_range);
+        assert!(
+            result == expectation,
+            "TimeRelation::beginning_within({:?}).matches({:?}) was {:?}, expected {:?}",
+            ref_range,
+            target_range,
+            result,
+            expectation
+        )
+    }
+}
+
+#[test]
+fn ending_within() {
+    let test_cases = vec![
+        (((Unbounded, Unbounded), (Unbounded, Excluded(10))), true),
+        (((Unbounded, Unbounded), (Unbounded, Unbounded)), true),
+        (((Included(1), Unbounded), (Unbounded, Included(1))), true),
+        (((Included(1), Unbounded), (Unbounded, Included(0))), false),
+        (((Unbounded, Included(1)), (Unbounded, Included(1))), true),
+        (((Unbounded, Included(1)), (Unbounded, Included(2))), false),
+        (
+            ((Included(1), Excluded(10)), (Included(0), Excluded(10))),
+            true,
+        ),
+        (
+            ((Included(1), Excluded(10)), (Included(0), Excluded(11))),
+            false,
+        ),
+        (
+            ((Included(1), Excluded(10)), (Included(0), Excluded(2))),
+            true,
+        ),
+    ];
+
+    for ((ref_range, target_range), expectation) in test_cases {
+        let result = TimeRelation::ending_within(ref_range).matches(target_range);
+        assert!(
+            result == expectation,
+            "TimeRelation::ending_within({:?}).matches({:?}) was {:?}, expected {:?}",
+            ref_range,
+            target_range,
+            result,
+            expectation
+        )
+    }
+}
+
+#[test]
 fn overlapping() {
     let test_cases = vec![
         (((Unbounded, Unbounded), (Unbounded, Unbounded)), true),
