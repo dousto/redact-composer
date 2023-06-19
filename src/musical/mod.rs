@@ -3,6 +3,7 @@ use std::fmt;
 use crate::composer;
 
 pub mod midi;
+pub mod rhythm;
 
 #[cfg(test)]
 mod test;
