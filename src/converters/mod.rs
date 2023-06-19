@@ -9,7 +9,7 @@ use midly::{
     Format::Parallel, Header, MetaMessage, MidiMessage, Smf, Timing::Metrical, TrackEvent,
     TrackEventKind,
 };
-use std::{cmp::Ordering, convert::identity};
+use std::cmp::Ordering;
 
 pub struct MidiConverter;
 
@@ -26,7 +26,20 @@ impl MidiConverter {
             .enumerate()
             .map(|(idx, subtree_root)| {
                 let u8idx: u8 = idx.try_into().unwrap();
-                let mut track = Self::convert_subtree(subtree_root, tree, u8idx);
+                let channel = {
+                    match subtree_root
+                        .value
+                        .segment
+                        .segment_type_as::<Part>()
+                        .unwrap()
+                        .1
+                    {
+                        crate::composer::PartType::Instrument => u8idx + (u8idx / 9_u8).min(1), // Skips 9, since it is reserved for percussion
+                        crate::composer::PartType::Percussion => 9_u8,
+                    }
+                };
+
+                let mut track = Self::convert_subtree(subtree_root, tree, channel);
                 if u8idx == 0 {
                     track.insert(
                         0,
@@ -49,7 +62,7 @@ impl MidiConverter {
                 format: Parallel,
                 timing: Metrical(480.into()),
             },
-            tracks: tracks,
+            tracks,
         }
     }
 
@@ -107,7 +120,7 @@ impl MidiConverter {
                     None
                 }
             })
-            .flat_map(identity)
+            .flatten()
             .collect();
 
         abs_time_events.sort_by(|a, b| {

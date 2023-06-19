@@ -75,7 +75,7 @@ impl<'a> CompositionContext<'a> {
         scope: SearchScope,
     ) -> Option<Vec<&F>> {
         self.get_all_segments::<F>(relation, scope)
-            .and_then(|v| Some(v.iter().flat_map(|s| s.segment_type_as::<F>()).collect()))
+            .map(|v| v.iter().flat_map(|s| s.segment_type_as::<F>()).collect())
     }
 
     /// Get all typed implementations of [`SegmentType`] from the render tree within the given
@@ -89,7 +89,7 @@ impl<'a> CompositionContext<'a> {
         scope: SearchScope,
     ) -> Option<Vec<&F>> {
         self.get_all_segments_where::<F>(where_clause, relation, scope)
-            .and_then(|v| Some(v.iter().flat_map(|s| s.segment_type_as::<F>()).collect()))
+            .map(|v| v.iter().flat_map(|s| s.segment_type_as::<F>()).collect())
     }
 
     /// Get the containing [CompositionSegment] from the render tree matching the given [SegmentType] where within the given
@@ -102,7 +102,7 @@ impl<'a> CompositionContext<'a> {
         scope: SearchScope,
     ) -> Option<&CompositionSegment> {
         self.get_all_segments::<F>(relation, scope)
-            .and_then(|v| v.first().map(|s| *s))
+            .and_then(|v| v.first().copied())
     }
 
     /// Get the containing [CompositionSegment] from the render tree matching the given [SegmentType] within the given
@@ -116,7 +116,7 @@ impl<'a> CompositionContext<'a> {
         scope: SearchScope,
     ) -> Option<&CompositionSegment> {
         self.get_all_segments_where::<F>(where_clause, relation, scope)
-            .and_then(|v| v.first().map(|s| *s))
+            .and_then(|v| v.first().copied())
     }
 
     /// Get the containing [CompositionSegment]s from the render tree matching the given [SegmentType] where within the given
@@ -142,34 +142,18 @@ impl<'a> CompositionContext<'a> {
         scope: SearchScope,
     ) -> Option<Vec<&CompositionSegment>> {
         let mut matching_segments: Vec<&CompositionSegment> = vec![];
-        let mut opt_ancestor = self.start.parent.and_then(|p_idx| self.tree.get(p_idx));
-        let mut skip = vec![self.start.idx];
 
-        while let Some(ancestor) = opt_ancestor {
-            if !matching_segments.is_empty() {
-                break;
-            }
-
-            let iter = self.tree.node_iter_with_skip(ancestor, skip).filter(|n| {
-                n.value.rendered
-                    && relation.matches(n.value.segment.begin..n.value.segment.end)
-                    && self.is_in_scope(&scope, n)
-            });
-
-            for node in iter {
-                if node
+        for node in CtxIter::new(&self.tree[0], self.tree, relation) {
+            if self.is_in_scope(&scope, node)
+                && node
                     .value
                     .segment
                     .segment_type_as::<F>()
-                    .and_then(|f| Some(where_clause(f)))
+                    .map(&where_clause)
                     .unwrap_or(false)
-                {
-                    matching_segments.insert(matching_segments.len(), &node.value.segment)
-                }
+            {
+                matching_segments.insert(matching_segments.len(), &node.value.segment)
             }
-
-            skip = vec![ancestor.idx];
-            opt_ancestor = ancestor.parent.and_then(|p_idx| self.tree.get(p_idx));
         }
 
         if matching_segments.is_empty() {
@@ -186,15 +170,12 @@ impl<'a> CompositionContext<'a> {
                 let mut opt_ancestor = None;
 
                 while let Some(cursor_node) = cursor.and_then(|p_idx| self.tree.get(p_idx)) {
-                    if *search_type
-                        == (&*cursor_node.value.segment.segment_type)
-                            .as_any()
-                            .type_id()
+                    if *search_type == (*cursor_node.value.segment.segment_type).as_any().type_id()
                         || cursor_node
                             .value
                             .segment
                             .segment_type_as::<Part>()
-                            .map(|p| *search_type == (&*p.0).as_any().type_id())
+                            .map(|p| *search_type == (*p.0).as_any().type_id())
                             .unwrap_or(false)
                     {
                         opt_ancestor = Some(cursor_node)
@@ -219,12 +200,12 @@ impl<'a> CompositionContext<'a> {
                 let mut cursor = Some(node.idx);
 
                 while let Some(ancestor) = cursor.and_then(|p_idx| self.tree.get(p_idx)) {
-                    if (&*ancestor.value.segment.segment_type).as_any().type_id() == *search_type
+                    if (*ancestor.value.segment.segment_type).as_any().type_id() == *search_type
                         || ancestor
                             .value
                             .segment
                             .segment_type_as::<Part>()
-                            .map(|p| *search_type == (&*p.0).as_any().type_id())
+                            .map(|p| *search_type == (*p.0).as_any().type_id())
                             .unwrap_or(false)
                     {
                         return true;
@@ -472,6 +453,84 @@ impl BoundType {
             (BoundType::End(Bound::Included(_)), BoundType::End(Bound::Unbounded)) => true,
             (BoundType::End(Bound::Excluded(_)), BoundType::End(Bound::Unbounded)) => true,
             (BoundType::End(Bound::Unbounded), BoundType::End(Bound::Unbounded)) => true,
+        }
+    }
+}
+
+struct CtxIter<'a> {
+    tree: &'a Tree<RenderSegment>,
+    idx: usize,
+    curr_nodes: Vec<&'a Node<RenderSegment>>,
+    next_nodes: Vec<&'a Node<RenderSegment>>,
+    time_relation: TimeRelation,
+}
+
+impl<'a> Iterator for CtxIter<'a> {
+    type Item = &'a Node<RenderSegment>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(node) = self.curr_nodes.get(self.idx) {
+            let mut child_nodes: Vec<&Node<RenderSegment>> = node
+                .children
+                .iter()
+                .map(|child_idx| &self.tree[*child_idx])
+                .filter(|n| n.value.rendered && self.might_have_items(n))
+                .collect();
+
+            self.next_nodes.append(&mut child_nodes);
+            self.idx += 1;
+
+            if self.time_relation.matches(&node.value.segment) {
+                Some(node)
+            } else {
+                self.next()
+            }
+        } else if self.next_nodes.is_empty() {
+            None
+        } else {
+            self.curr_nodes = vec![];
+            self.curr_nodes.append(&mut self.next_nodes);
+            self.idx = 0;
+
+            self.next()
+        }
+    }
+}
+
+impl<'a> CtxIter<'a> {
+    fn new(
+        node: &'a Node<RenderSegment>,
+        tree: &'a Tree<RenderSegment>,
+        relation: TimeRelation,
+    ) -> CtxIter<'a> {
+        CtxIter {
+            tree,
+            idx: 0,
+            curr_nodes: vec![node],
+            next_nodes: vec![],
+            time_relation: relation,
+        }
+    }
+
+    fn might_have_items(&self, node: &Node<RenderSegment>) -> bool {
+        match self.time_relation {
+            TimeRelation::During(_) => self.time_relation.matches(&node.value.segment),
+            TimeRelation::Overlapping(_) => self.time_relation.matches(&node.value.segment),
+            TimeRelation::Within((a, b)) => {
+                TimeRelation::overlapping((a, b)).matches(&node.value.segment)
+            }
+            TimeRelation::BeginningWithin((a, b)) => {
+                TimeRelation::overlapping((a, b)).matches(&node.value.segment)
+            }
+            TimeRelation::EndingWithin((a, b)) => {
+                TimeRelation::overlapping((a, b)).matches(&node.value.segment)
+            }
+            TimeRelation::Before((a, _)) => {
+                TimeRelation::overlapping((Bound::Unbounded, a)).matches(&node.value.segment)
+            }
+            TimeRelation::After((_, b)) => {
+                TimeRelation::overlapping((b, Bound::Unbounded)).matches(&node.value.segment)
+            }
         }
     }
 }

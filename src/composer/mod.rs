@@ -1,9 +1,11 @@
 use std::any::Any;
 use std::fmt::Debug;
+use std::hash::{Hash, Hasher};
 use std::ops::{Bound, RangeBounds};
 
 use rand::{thread_rng, RngCore, SeedableRng};
 use rand_chacha::ChaCha12Rng;
+use twox_hash::XxHash64;
 
 use crate::composer::context::CompositionContext;
 
@@ -52,12 +54,19 @@ where
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+enum SeedType {
+    Random,
+    FixedSeed(u64),
+}
+
 /// Simple struct to represent a given [`SegmentType`] which spans over a time range (`begin..end`).
 #[derive(Debug)]
 pub struct CompositionSegment {
     pub segment_type: Box<dyn SegmentType>,
     pub begin: i32,
     pub end: i32,
+    seeded_from: SeedType,
 }
 
 impl CompositionSegment {
@@ -66,6 +75,24 @@ impl CompositionSegment {
             segment_type: Box::new(composition_type),
             begin,
             end,
+            seeded_from: SeedType::Random,
+        }
+    }
+
+    pub fn named<T: SegmentType>(
+        hashable_name: impl Hash,
+        composition_type: T,
+        begin: i32,
+        end: i32,
+    ) -> CompositionSegment {
+        let mut hasher = XxHash64::with_seed(0);
+        hashable_name.hash(&mut hasher);
+
+        CompositionSegment {
+            segment_type: Box::new(composition_type),
+            begin,
+            end,
+            seeded_from: SeedType::FixedSeed(hasher.finish()),
         }
     }
 
@@ -73,14 +100,14 @@ impl CompositionSegment {
     /// the specific type. Returns [`Option<&T>`], containing the reference to the [`SegmentType`] or [`None`]
     /// if the type does not match.
     pub fn segment_type_as<T: SegmentType>(&self) -> Option<&T> {
-        (&*self.segment_type)
+        (*self.segment_type)
             .as_any()
             .downcast_ref::<T>()
             .or_else(|| {
-                (&*self.segment_type)
+                (*self.segment_type)
                     .as_any()
                     .downcast_ref::<Part>()
-                    .and_then(|p| (&*p.0).as_any().downcast_ref::<T>())
+                    .and_then(|p| (*p.0).as_any().downcast_ref::<T>())
             })
     }
 
@@ -90,6 +117,16 @@ impl CompositionSegment {
 }
 
 impl RangeBounds<i32> for CompositionSegment {
+    fn start_bound(&self) -> Bound<&i32> {
+        Bound::Included(&self.begin)
+    }
+
+    fn end_bound(&self) -> Bound<&i32> {
+        Bound::Excluded(&self.end)
+    }
+}
+
+impl RangeBounds<i32> for &CompositionSegment {
     fn start_bound(&self) -> Bound<&i32> {
         Bound::Included(&self.begin)
     }
@@ -115,9 +152,15 @@ pub struct PlayNote {
 
 impl ConcreteSegmentType for PlayNote {}
 
+#[derive(Debug)]
+pub enum PartType {
+    Instrument,
+    Percussion,
+}
+
 /// Part is a special signifier to group notes that are to be played by a single instrument at a time.
 #[derive(Debug)]
-pub struct Part(pub Box<dyn SegmentType>);
+pub struct Part(pub Box<dyn SegmentType>, pub PartType);
 
 /// This is a simple pass-through implementation to the wrapped [`SegmentType`].
 impl SegmentType for Part {
@@ -127,8 +170,12 @@ impl SegmentType for Part {
 }
 
 impl Part {
-    pub fn new(wrapped_type: impl SegmentType + 'static) -> Part {
-        Part(Box::new(wrapped_type))
+    pub fn instrument(wrapped_type: impl SegmentType + 'static) -> Part {
+        Part(Box::new(wrapped_type), PartType::Instrument)
+    }
+
+    pub fn percussion(wrapped_type: impl SegmentType + 'static) -> Part {
+        Part(Box::new(wrapped_type), PartType::Percussion)
     }
 }
 
@@ -150,11 +197,13 @@ pub struct Composer {}
 
 impl Composer {
     pub fn compose(seg: CompositionSegment) -> Tree<RenderSegment> {
-        Self::compose_with_seed(seg, thread_rng().next_u64())
+        let mut hasher = XxHash64::with_seed(0);
+        thread_rng().next_u64().hash(&mut hasher);
+        Self::compose_with_seed(seg, hasher.finish())
     }
     /// Generates a render tree ([`Vec<Node<RenderSegment>>`]) from a starting [CompositionSegment].
-    pub fn compose_with_seed(seg: CompositionSegment, seed: u64) -> Tree<RenderSegment> {
-        let mut rng = ChaCha12Rng::seed_from_u64(seed);
+    pub fn compose_with_seed(mut seg: CompositionSegment, seed: u64) -> Tree<RenderSegment> {
+        seg.seeded_from = SeedType::FixedSeed(seed);
         let mut render_tree = Tree::new();
         render_tree.insert(
             RenderSegment {
@@ -184,13 +233,13 @@ impl Composer {
                 .collect();
 
             for idx in unrendered {
-                if (&*render_tree[idx].value.segment.segment_type)
+                if (*render_tree[idx].value.segment.segment_type)
                     .as_any()
                     .is::<Part>()
                 {
                     let mut parent = &render_tree[idx].parent;
                     while let Some(pidx) = parent {
-                        if (&*render_tree[*pidx].value.segment.segment_type)
+                        if (*render_tree[*pidx].value.segment.segment_type)
                             .as_any()
                             .is::<Part>()
                         {
@@ -204,14 +253,30 @@ impl Composer {
 
                 let result = render_tree[idx].value.segment.render(composition_context);
 
+                let mut hasher = XxHash64::with_seed(0);
+                let _ = &render_tree[idx].value.seed.hash(&mut hasher);
+                let mut rng = ChaCha12Rng::seed_from_u64(hasher.finish());
+
                 match result {
                     RenderResult::Success(Some(segments)) => {
                         let inserts: Vec<RenderSegment> = segments
                             .into_iter()
                             .map(|s| RenderSegment {
                                 rendered: !s.segment_type.renderable(),
+                                seed: match s.seeded_from {
+                                    SeedType::Random => {
+                                        let mut hasher = XxHash64::with_seed(0);
+                                        rng.next_u64().hash(&mut hasher);
+                                        hasher.finish()
+                                    }
+                                    SeedType::FixedSeed(seed) => {
+                                        let mut hasher = XxHash64::with_seed(0);
+                                        let _ = &render_tree[idx].value.seed.hash(&mut hasher);
+                                        seed.hash(&mut hasher);
+                                        hasher.finish()
+                                    }
+                                },
                                 segment: s,
-                                seed: rng.next_u64(),
                             })
                             .collect();
 
@@ -235,7 +300,7 @@ impl Composer {
                 render_pass, rendered_node_count
             );
             render_pass += 1;
-            if rendered_node_count <= 0 {
+            if rendered_node_count == 0 {
                 break;
             }
         }

@@ -26,7 +26,7 @@ impl<T> Tree<T> {
 
     pub fn node_iter<'a>(&'a self, start: &'a Node<T>) -> NodeIter<T> {
         NodeIter {
-            tree: &self,
+            tree: self,
             idx_idx: 0,
             idxs: vec![&start.idx],
             skip: None,
@@ -35,7 +35,7 @@ impl<T> Tree<T> {
 
     pub fn node_iter_with_skip<'a>(&'a self, start: &'a Node<T>, skip: Vec<usize>) -> NodeIter<T> {
         NodeIter {
-            tree: &self,
+            tree: self,
             idx_idx: 0,
             idxs: vec![&start.idx],
             skip: Some(skip),
@@ -46,7 +46,7 @@ impl<T> Tree<T> {
         match self.root() {
             Some(root) => self.node_iter(root),
             None => NodeIter {
-                tree: &self,
+                tree: self,
                 idx_idx: 0,
                 idxs: vec![],
                 skip: None,
@@ -68,6 +68,12 @@ impl<T> Tree<T> {
         }
 
         new_idx
+    }
+}
+
+impl<T> Default for Tree<T> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

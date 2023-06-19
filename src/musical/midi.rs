@@ -449,3 +449,66 @@ impl From<Instruments> for Vec<Instrument> {
         value.programs
     }
 }
+
+#[derive(Debug, Hash, FromPrimitive, PartialEq, Clone, Copy)]
+pub enum DrumHit {
+    AcousticBassDrum = 35,
+    BassDrum,
+    SideStick,
+    AcousticSnare,
+    HandClap,
+    ElectricSnare,
+    LowFloorTom,
+    ClosedHiHat,
+    HighFloorTom,
+    PedalHiHat,
+    LowTom,
+    OpenHiHat,
+    LowMidTom,
+    HighMidTom,
+    CrashCymbal1,
+    HighTom,
+    RideCymbal1,
+    ChineseCymbal,
+    RideBell,
+    Tambourine,
+    SplashCymbal,
+    Cowbell,
+    CrashCymbal2,
+    Vibraslap,
+    RideCymbal2,
+    HighBongo,
+    LowBongo,
+    MuteHighConga,
+    OpenHighConga,
+    LowConga,
+    HighTimbale,
+    LowTimbale,
+    HighAgogo,
+    LowAgogo,
+    Cabasa,
+    Maracas,
+    ShortWhistle,
+    LongWhistle,
+    ShortGuiro,
+    LongGuiro,
+    Claves,
+    HighWoodblock,
+    LowWoodblock,
+    MuteCuica,
+    OpenCuica,
+    MuteTriangle,
+    OpenTriangle,
+}
+
+impl From<u8> for DrumHit {
+    fn from(value: u8) -> Self {
+        num::FromPrimitive::from_u8(value).unwrap()
+    }
+}
+
+impl From<DrumHit> for u8 {
+    fn from(value: DrumHit) -> Self {
+        value as u8
+    }
+}
