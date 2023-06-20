@@ -152,7 +152,7 @@ pub struct PlayNote {
 
 impl ConcreteSegmentType for PlayNote {}
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum PartType {
     Instrument,
     Percussion,
