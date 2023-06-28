@@ -1,3 +1,5 @@
+use serde::{ser::SerializeStruct, Serialize};
+
 #[derive(Debug)]
 pub struct Node<T> {
     pub idx: usize,
@@ -134,5 +136,59 @@ impl<T> std::ops::Index<usize> for Tree<T> {
 impl<T> std::ops::IndexMut<usize> for Tree<T> {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         &mut self.nodes[index]
+    }
+}
+
+impl<T> Serialize for Tree<T>
+where
+    T: Serialize,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        NodeWithTree {
+            node: &self[0],
+            tree: self,
+        }
+        .serialize(serializer)
+    }
+}
+
+// Private serialization helper struct
+struct NodeWithTree<'a, T> {
+    pub node: &'a Node<T>,
+    pub tree: &'a Tree<T>,
+}
+
+impl<'a, T> Serialize for NodeWithTree<'a, T>
+where
+    T: Serialize,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let num_fields = if self.node.children.is_empty() { 1 } else { 2 };
+        let mut state = serializer.serialize_struct("Node", num_fields)?;
+
+        state.serialize_field("segment", &self.node.value)?;
+
+        if !self.node.children.is_empty() {
+            state.serialize_field(
+                "children",
+                &self
+                    .node
+                    .children
+                    .iter()
+                    .map(|child_idx| NodeWithTree {
+                        node: &self.tree[*child_idx],
+                        tree: self.tree,
+                    })
+                    .collect::<Vec<_>>(),
+            )?;
+        }
+
+        state.end()
     }
 }

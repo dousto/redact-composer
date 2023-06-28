@@ -1,6 +1,7 @@
 use std::ops::Range;
 
 use rand::{seq::SliceRandom, Rng};
+use serde::{Deserialize, Serialize};
 
 #[cfg(test)]
 mod test;
@@ -8,7 +9,7 @@ mod test;
 pub const STANDARD_BEAT_LENGTH: i32 = 480;
 pub const HIGH_PRECISION_BEAT_LENGTH: i32 = STANDARD_BEAT_LENGTH * 2;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Subdivision {
     pub timing: Range<i32>,
     pub is_rest: bool,
@@ -21,7 +22,7 @@ impl From<Vec<Subdivision>> for Rhythm {
 }
 
 /// Represents a rhythm as a sequence of timing divisions ([`Vec<Subdivision>`]).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Rhythm(pub Vec<Subdivision>);
 impl Rhythm {
     /// Generates a random rhythm where subdivision lengths are balanced to be either `n` or `2n` for some `n >= min_subdivision`.

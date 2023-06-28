@@ -5,6 +5,7 @@ use std::ops::{Bound, RangeBounds};
 
 use rand::{thread_rng, RngCore, SeedableRng};
 use rand_chacha::ChaCha12Rng;
+use serde::{Deserialize, Serialize};
 use twox_hash::XxHash64;
 
 use crate::composer::context::CompositionContext;
@@ -16,6 +17,7 @@ pub mod render;
 
 /// The base trait for any object that will be used as a composition element.
 /// It should implement [`SegmentType::render`], or otherwise implement [`ConcreteSegmentType`].
+#[typetag::serde]
 pub trait SegmentType: Debug + AsAny + 'static {
     /// Returns a [`bool`] indicating whether this [`SegmentType`] should render. Generally this
     /// is not needed to be implemented, as any [`SegmentType`] that doesn't render should just
@@ -25,7 +27,9 @@ pub trait SegmentType: Debug + AsAny + 'static {
     }
 
     /// Defines how the segment will render (producing child [`CompositionSegment`]s).
-    fn render(&self, begin: i32, end: i32, context: CompositionContext) -> RenderResult;
+    fn render(&self, _begin: i32, _end: i32, _context: CompositionContext) -> RenderResult {
+        RenderResult::Success(None)
+    }
 }
 
 pub trait AsAny {
@@ -38,31 +42,16 @@ impl<T: Any + Debug + 'static> AsAny for T {
     }
 }
 
-/// Trait used to mark [`SegmentType`]s which do not render anything.
-pub trait ConcreteSegmentType {}
-
-impl<T> SegmentType for T
-where
-    T: ConcreteSegmentType + Debug + 'static,
-{
-    fn renderable(&self) -> bool {
-        false
-    }
-
-    fn render(&self, _begin: i32, _end: i32, _context: CompositionContext) -> RenderResult {
-        RenderResult::Success(None)
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 enum SeedType {
     Random,
     FixedSeed(u64),
 }
 
 /// Simple struct to represent a given [`SegmentType`] which spans over a time range (`begin..end`).
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct CompositionSegment {
+    #[serde(rename = "type")]
     pub segment_type: Box<dyn SegmentType>,
     pub begin: i32,
     pub end: i32,
@@ -137,32 +126,43 @@ impl RangeBounds<i32> for &CompositionSegment {
 }
 
 /// Note: Use [`redact_composer::musical::midi::Instrument`] for the time being.
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Instrument {
     pub program: u8,
 }
 
-impl ConcreteSegmentType for Instrument {}
+#[typetag::serde]
+impl SegmentType for Instrument {
+    fn renderable(&self) -> bool {
+        false
+    }
+}
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct PlayNote {
     pub note: u8,
     pub velocity: u8,
 }
 
-impl ConcreteSegmentType for PlayNote {}
+#[typetag::serde]
+impl SegmentType for PlayNote {
+    fn renderable(&self) -> bool {
+        false
+    }
+}
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum PartType {
     Instrument,
     Percussion,
 }
 
 /// Part is a special signifier to group notes that are to be played by a single instrument at a time.
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Part(pub Box<dyn SegmentType>, pub PartType);
 
 /// This is a simple pass-through implementation to the wrapped [`SegmentType`].
+#[typetag::serde]
 impl SegmentType for Part {
     fn render(&self, begin: i32, end: i32, context: CompositionContext) -> RenderResult {
         self.0.render(begin, end, context)
@@ -181,8 +181,9 @@ impl Part {
 
 // Composer stuff
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct RenderSegment {
+    #[serde(flatten)]
     pub segment: CompositionSegment,
     pub seed: u64,
     pub rendered: bool,

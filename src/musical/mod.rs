@@ -1,6 +1,8 @@
 use std::fmt;
 
-use crate::composer;
+use serde::{Deserialize, Serialize};
+
+use crate::composer::{self, SegmentType};
 
 pub mod midi;
 pub mod rhythm;
@@ -71,14 +73,20 @@ where
 }
 
 /// Represents a key signature via a tonic ([u8] value in `0..=11`) and [Scale] (e.g. Major/Minor).
-#[derive(Debug, Hash, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Hash, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Key {
     /// First note of the scale. (`tonic == 0` represents C)
     pub tonic: u8,
     /// The interval sequence (relative to the `tonic`) defining the base notes this [Key].
     pub scale: Scale,
 }
-impl composer::ConcreteSegmentType for Key {}
+
+#[typetag::serde]
+impl composer::SegmentType for Key {
+    fn renderable(&self) -> bool {
+        false
+    }
+}
 
 impl Key {
     /// Returns the scale notes for this [Key], starting from the `tonic` and using relative intervals
@@ -111,7 +119,7 @@ impl Key {
 }
 
 /// A type representing the diatonic harmony chord variations based on [heptatonic (7-note) scales](https://en.wikipedia.org/wiki/Heptatonic_scale).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Chord {
     /// ```rust
     /// # use redact_composer::musical::{Chord};
@@ -149,7 +157,13 @@ pub enum Chord {
     /// ```
     VII,
 }
-impl composer::ConcreteSegmentType for Chord {}
+
+#[typetag::serde]
+impl composer::SegmentType for Chord {
+    fn renderable(&self) -> bool {
+        true
+    }
+}
 
 impl Chord {
     const I_STR: &str = "I";
@@ -242,7 +256,7 @@ impl From<&String> for Chord {
 }
 
 /// A type representing the sequence of intervals defining the notes in a [Key].
-#[derive(Debug, Hash, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Hash, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Scale {
     /// ```rust
     /// # use redact_composer::musical::{Scale};
@@ -265,7 +279,13 @@ pub enum Scale {
     /// ```
     HarmonicMinor,
 }
-impl composer::ConcreteSegmentType for Scale {}
+
+#[typetag::serde]
+impl composer::SegmentType for Scale {
+    fn renderable(&self) -> bool {
+        false
+    }
+}
 
 impl Scale {
     const MAJOR_STR: &str = "Major";

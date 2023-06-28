@@ -1,13 +1,12 @@
 use num;
 use num_derive;
+use serde::{Deserialize, Serialize};
 use std::ops::{Add, Sub};
 
 use num_derive::FromPrimitive;
 
-use crate::composer::ConcreteSegmentType;
-
 /// Instruments defined according to [GM1 Sound Set](https://www.midi.org/specifications-old/item/gm-level-1-sound-set)
-#[derive(Debug, Hash, FromPrimitive, PartialEq, Clone, Copy)]
+#[derive(Debug, Hash, FromPrimitive, PartialEq, Clone, Copy, Serialize, Deserialize)]
 pub enum Instrument {
     // Piano (0..=7)
     AcousticGrandPiano,
@@ -169,7 +168,13 @@ pub enum Instrument {
     Applause,
     Gunshot,
 }
-impl ConcreteSegmentType for Instrument {}
+
+#[typetag::serde]
+impl super::SegmentType for Instrument {
+    fn renderable(&self) -> bool {
+        false
+    }
+}
 
 /// ##Example
 /// ```rust
@@ -343,6 +348,7 @@ impl Instruments {
             - Instrument::LeadFifths
             - Instrument::OrchestraHit
             - Instrument::Kalimba
+            - Instrument::GuitarHarmonics
     }
 }
 
