@@ -1,4 +1,4 @@
-use serde::{ser::SerializeStruct, Serialize};
+use serde::Serialize;
 
 #[derive(Debug)]
 pub struct Node<T> {
@@ -147,48 +147,28 @@ where
     where
         S: serde::Serializer,
     {
-        NodeWithTree {
-            node: &self[0],
-            tree: self,
-        }
-        .serialize(serializer)
+        SerializeHelperNode::from(&self[0], self).serialize(serializer)
     }
 }
 
 // Private serialization helper struct
-struct NodeWithTree<'a, T> {
-    pub node: &'a Node<T>,
-    pub tree: &'a Tree<T>,
+#[derive(Serialize)]
+struct SerializeHelperNode<'a, T> {
+    #[serde(flatten)]
+    pub val: &'a T,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub children: Vec<SerializeHelperNode<'a, T>>,
 }
 
-impl<'a, T> Serialize for NodeWithTree<'a, T>
-where
-    T: Serialize,
-{
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let num_fields = if self.node.children.is_empty() { 1 } else { 2 };
-        let mut state = serializer.serialize_struct("Node", num_fields)?;
-
-        state.serialize_field("segment", &self.node.value)?;
-
-        if !self.node.children.is_empty() {
-            state.serialize_field(
-                "children",
-                &self
-                    .node
-                    .children
-                    .iter()
-                    .map(|child_idx| NodeWithTree {
-                        node: &self.tree[*child_idx],
-                        tree: self.tree,
-                    })
-                    .collect::<Vec<_>>(),
-            )?;
+impl<'a, T> SerializeHelperNode<'a, T> {
+    pub fn from(node: &'a Node<T>, tree: &'a Tree<T>) -> SerializeHelperNode<'a, T> {
+        SerializeHelperNode {
+            val: &node.value,
+            children: node
+                .children
+                .iter()
+                .map(|n| SerializeHelperNode::from(&tree[*n], tree))
+                .collect::<Vec<_>>(),
         }
-
-        state.end()
     }
 }
