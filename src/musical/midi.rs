@@ -5,6 +5,8 @@ use std::ops::{Add, Sub};
 
 use num_derive::FromPrimitive;
 
+use crate::composer::{context::CompositionContext, CompositionSegment, RenderResult, SegmentType};
+
 /// Instruments defined according to [GM1 Sound Set](https://www.midi.org/specifications-old/item/gm-level-1-sound-set)
 #[derive(Debug, Hash, FromPrimitive, PartialEq, Clone, Copy, Serialize, Deserialize)]
 pub enum Instrument {
@@ -169,10 +171,16 @@ pub enum Instrument {
     Gunshot,
 }
 
-#[typetag::serde]
-impl super::SegmentType for Instrument {
-    fn renderable(&self) -> bool {
-        false
+#[typetag::serde(name = "midi::Instrument")]
+impl SegmentType for Instrument {
+    fn render(&self, begin: i32, end: i32, _context: CompositionContext) -> RenderResult {
+        RenderResult::Success(Some(vec![CompositionSegment::new(
+            crate::composer::Instrument {
+                program: (*self).into(),
+            },
+            begin,
+            end,
+        )]))
     }
 }
 

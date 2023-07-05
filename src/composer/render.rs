@@ -1,4 +1,6 @@
-use serde::Serialize;
+use std::fmt::Debug;
+
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug)]
 pub struct Node<T> {
@@ -16,6 +18,14 @@ pub struct Tree<T> {
 impl<T> Tree<T> {
     pub fn new() -> Tree<T> {
         Tree { nodes: vec![] }
+    }
+
+    pub fn len(&self) -> usize {
+        self.nodes.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.nodes.is_empty()
     }
 
     pub fn root(&self) -> Option<&Node<T>> {
@@ -147,7 +157,19 @@ where
     where
         S: serde::Serializer,
     {
-        SerializeHelperNode::from(&self[0], self).serialize(serializer)
+        SerializeHelperNode::from((&self[0], self)).serialize(serializer)
+    }
+}
+
+impl<'de, T> Deserialize<'de> for Tree<T>
+where
+    T: Deserialize<'de> + Debug,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ok(DeserializeHelperNode::deserialize(deserializer)?.into())
     }
 }
 
@@ -160,15 +182,59 @@ struct SerializeHelperNode<'a, T> {
     pub children: Vec<SerializeHelperNode<'a, T>>,
 }
 
-impl<'a, T> SerializeHelperNode<'a, T> {
-    pub fn from(node: &'a Node<T>, tree: &'a Tree<T>) -> SerializeHelperNode<'a, T> {
+#[derive(Deserialize)]
+struct DeserializeHelperNode<T> {
+    #[serde(flatten)]
+    pub val: T,
+    #[serde(default = "Vec::new")]
+    pub children: Vec<DeserializeHelperNode<T>>,
+}
+
+impl<'a, T> From<(&'a Node<T>, &'a Tree<T>)> for SerializeHelperNode<'a, T> {
+    fn from(value: (&'a Node<T>, &'a Tree<T>)) -> SerializeHelperNode<'a, T> {
+        let (node, tree) = value;
         SerializeHelperNode {
             val: &node.value,
             children: node
                 .children
                 .iter()
-                .map(|n| SerializeHelperNode::from(&tree[*n], tree))
+                .map(|n| SerializeHelperNode::from((&tree[*n], tree)))
                 .collect::<Vec<_>>(),
         }
+    }
+}
+
+impl<T> From<DeserializeHelperNode<T>> for Tree<T> {
+    fn from(value: DeserializeHelperNode<T>) -> Self {
+        let mut nodes_to_add = vec![(0_usize, value, None)];
+        let mut nodes = vec![];
+        let mut id_counter = 1;
+
+        while !nodes_to_add.is_empty() {
+            let mut next_nodes = nodes_to_add
+                .drain(..)
+                .flat_map(|(idx, n, parent)| {
+                    let (value, children) = (n.val, n.children);
+
+                    let child_idx_range = id_counter..(id_counter + children.len());
+                    id_counter += children.len();
+
+                    nodes.push(Node {
+                        idx,
+                        value,
+                        parent,
+                        children: Vec::from_iter(child_idx_range.clone()),
+                    });
+
+                    child_idx_range
+                        .zip(children.into_iter())
+                        .map(move |(child_idx, child_node)| (child_idx, child_node, Some(idx)))
+                })
+                .collect::<Vec<_>>();
+
+            nodes_to_add.append(&mut next_nodes);
+        }
+
+        Tree { nodes }
     }
 }

@@ -12,6 +12,9 @@ use crate::composer::context::CompositionContext;
 
 use self::render::Tree;
 
+#[cfg(test)]
+mod test;
+
 pub mod context;
 pub mod render;
 

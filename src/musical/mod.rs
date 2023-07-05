@@ -2,7 +2,7 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
-use crate::composer::{self, SegmentType};
+use crate::composer::SegmentType;
 
 pub mod midi;
 pub mod rhythm;
@@ -82,7 +82,7 @@ pub struct Key {
 }
 
 #[typetag::serde]
-impl composer::SegmentType for Key {
+impl SegmentType for Key {
     fn renderable(&self) -> bool {
         false
     }
@@ -159,7 +159,7 @@ pub enum Chord {
 }
 
 #[typetag::serde]
-impl composer::SegmentType for Chord {
+impl SegmentType for Chord {
     fn renderable(&self) -> bool {
         true
     }
@@ -281,7 +281,7 @@ pub enum Scale {
 }
 
 #[typetag::serde]
-impl composer::SegmentType for Scale {
+impl SegmentType for Scale {
     fn renderable(&self) -> bool {
         false
     }

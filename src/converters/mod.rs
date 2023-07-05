@@ -1,9 +1,6 @@
-use crate::{
-    composer::{
-        render::{Node, Tree},
-        Part, PartType, PlayNote, RenderSegment,
-    },
-    musical::midi::Instrument,
+use crate::composer::{
+    render::{Node, Tree},
+    Instrument, Part, PartType, PlayNote, RenderSegment,
 };
 use midly::{
     Format::Parallel, Header, MetaMessage, MidiMessage, Smf, Timing::Metrical, TrackEvent,
@@ -132,7 +129,7 @@ impl MidiConverter {
                             kind: TrackEventKind::Midi {
                                 channel: channel.into(),
                                 message: MidiMessage::ProgramChange {
-                                    program: u8::from(*instrument).into(),
+                                    program: instrument.program.into(),
                                 },
                             },
                         },
