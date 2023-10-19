@@ -1,14 +1,20 @@
 use std::fmt;
 
+use crate::composer::render::RenderEngine;
 use serde::{Deserialize, Serialize};
 
 use crate::composer::SegmentType;
 
 pub mod midi;
 pub mod rhythm;
+pub mod timing;
 
 #[cfg(test)]
 mod test;
+
+pub fn renderers() -> RenderEngine {
+    midi::renderers() + timing::renderers()
+}
 
 /// Utility struct used for operating with a set of base notes ([u8] values `0..=11`).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -25,8 +31,8 @@ impl Notes {
     /// # Example
     ///
     /// ```rust
-    /// # use redact_composer::musical::{Key, Scale, Notes};
-    /// let c_major = Key { tonic: 0, scale: Scale::Major};
+    /// # use redact_composer::musical::{Key, Scale, Notes, Mode};
+    /// let c_major = Key { tonic: 0, scale: Scale::Major, mode: Mode::Ionian};
     /// let c_major_scale_notes = Notes::from(c_major.scale()).in_range(60..=72);
     /// assert_eq!(c_major_scale_notes, [60, 62, 64, 65, 67, 69, 71, 72]);
     /// ```
@@ -50,18 +56,14 @@ where
     T: IntoIterator<Item = K>,
     K: Into<u8>,
 {
-    /// Takes any any type implementing [IntoIterator] where the iteration
-    /// items implement [Into]<[u8]>.
+    /// Create a note set from a [`u8`] iterable.
     ///
     /// # Example
     /// ```rust
     /// # use redact_composer::musical::{Notes};
     /// let notes = Notes::from([1,2,3]);
     /// ```
-    fn from(value: T) -> Self
-    where
-        T: IntoIterator<Item = K>,
-    {
+    fn from(value: T) -> Self {
         let mut clamped_base_notes: Vec<u8> = value.into_iter().map(|n| n.into() % 12).collect();
         clamped_base_notes.sort();
         clamped_base_notes.dedup();
@@ -72,28 +74,27 @@ where
     }
 }
 
-/// Represents a key signature via a tonic ([u8] value in `0..=11`) and [Scale] (e.g. Major/Minor).
-#[derive(Debug, Hash, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+/// Represents a key signature via a tonic ([u8] value in `0..=11`), [Scale] (e.g. Major/Minor),
+/// and [`Mode`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Key {
     /// First note of the scale. (`tonic == 0` represents C)
     pub tonic: u8,
     /// The interval sequence (relative to the `tonic`) defining the base notes this [Key].
     pub scale: Scale,
+    /// Offset amount for the scale.
+    pub mode: Mode,
 }
 
 #[typetag::serde]
-impl SegmentType for Key {
-    fn renderable(&self) -> bool {
-        false
-    }
-}
+impl SegmentType for Key {}
 
 impl Key {
     /// Returns the scale notes for this [Key], starting from the `tonic` and using relative intervals
     /// as determined by the [Scale].
     pub fn scale(&self) -> Vec<u8> {
         self.scale
-            .relative_pitches()
+            .relative_pitches(&self.mode)
             .iter()
             .map(|p| ((self.tonic % 12) + p) % 12)
             .collect()
@@ -104,7 +105,7 @@ impl Key {
     /// # Example
     /// ```rust
     /// # use redact_composer::musical::{Key, Scale, Chord};
-    /// let c_major = Key { tonic: 0, scale: Scale::Major};
+    /// let c_major = Key { tonic: 0, scale: Scale::Major, mode: Default::default() };
     /// let c_major_chord_notes = c_major.chord(&Chord::I);
     /// assert_eq!(c_major_chord_notes, [0, 4, 7]); // C, E, G
     /// ```
@@ -159,11 +160,7 @@ pub enum Chord {
 }
 
 #[typetag::serde]
-impl SegmentType for Chord {
-    fn renderable(&self) -> bool {
-        true
-    }
-}
+impl SegmentType for Chord {}
 
 impl Chord {
     const I_STR: &str = "I";
@@ -259,33 +256,29 @@ impl From<&String> for Chord {
 #[derive(Debug, Hash, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Scale {
     /// ```rust
-    /// # use redact_composer::musical::{Scale};
-    /// assert_eq!(Scale::Major.relative_pitches(), vec![0, 2, 4, 5, 7, 9, 11])
+    /// # use redact_composer::musical::{Mode, Scale};
+    /// assert_eq!(Scale::Major.relative_pitches(&Mode::Ionian), vec![0, 2, 4, 5, 7, 9, 11])
     /// ```
     Major,
     /// ```rust
-    /// # use redact_composer::musical::{Scale};
-    /// assert_eq!(Scale::Minor.relative_pitches(), vec![0, 2, 3, 5, 7, 9, 10])
+    /// # use redact_composer::musical::{Mode, Scale};
+    /// assert_eq!(Scale::Minor.relative_pitches(&Mode::Ionian), vec![0, 2, 3, 5, 7, 9, 10])
     /// ```
     Minor,
     /// ```rust
-    /// # use redact_composer::musical::{Scale};
-    /// assert_eq!(Scale::NaturalMinor.relative_pitches(), vec![0, 2, 3, 5, 7, 8, 10])
+    /// # use redact_composer::musical::{Mode, Scale};
+    /// assert_eq!(Scale::NaturalMinor.relative_pitches(&Mode::Ionian), vec![0, 2, 3, 5, 7, 8, 10])
     /// ```
     NaturalMinor,
     /// ```rust
-    /// # use redact_composer::musical::{Scale};
-    /// assert_eq!(Scale::HarmonicMinor.relative_pitches(), vec![0, 2, 3, 5, 7, 8, 11])
+    /// # use redact_composer::musical::{Mode, Scale};
+    /// assert_eq!(Scale::HarmonicMinor.relative_pitches(&Mode::Ionian), vec![0, 2, 3, 5, 7, 8, 11])
     /// ```
     HarmonicMinor,
 }
 
 #[typetag::serde]
-impl SegmentType for Scale {
-    fn renderable(&self) -> bool {
-        false
-    }
-}
+impl SegmentType for Scale {}
 
 impl Scale {
     const MAJOR_STR: &str = "Major";
@@ -304,13 +297,18 @@ impl Scale {
     }
 
     // Returns the pitches of this [Scale] (via interval offsest from tonic).
-    pub fn relative_pitches(&self) -> Vec<u8> {
+    pub fn relative_pitches(&self, mode: &Mode) -> Vec<u8> {
         match self {
             Scale::Major => vec![0, 2, 4, 5, 7, 9, 11],
             Scale::Minor => vec![0, 2, 3, 5, 7, 9, 10],
             Scale::NaturalMinor => vec![0, 2, 3, 5, 7, 8, 10],
             Scale::HarmonicMinor => vec![0, 2, 3, 5, 7, 8, 11],
         }
+        .into_iter()
+        .cycle()
+        .skip(*mode as usize)
+        .take(7)
+        .collect::<Vec<_>>()
     }
 }
 
@@ -359,5 +357,43 @@ impl From<String> for Scale {
 impl From<&String> for Scale {
     fn from(value: &String) -> Self {
         Self::from(value.as_str())
+    }
+}
+
+/// Offset applied to a [`Scale`].
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Mode {
+    /// No offset
+    #[default]
+    Ionian,
+    /// Offset of 1, starting a scale on the second pitch.
+    Dorian,
+    /// Offset of 2, starting a scale on the third pitch.
+    Phrygian,
+    /// Offset of 3, starting a scale on the fourth pitch.
+    Lydian,
+    /// Offset of 4, starting a scale on the fifth pitch.
+    Mixolydian,
+    /// Offset of 5, starting a scale on the sixth pitch.
+    Aeolian,
+    /// Offset of 6, starting a scale on the seventh pitch.
+    Locrian,
+}
+
+#[typetag::serde]
+impl SegmentType for Mode {}
+
+impl Mode {
+    /// Returns a [Vec]<[Mode]> of all types.
+    pub fn values() -> Vec<Mode> {
+        vec![
+            Self::Ionian,
+            Self::Dorian,
+            Self::Phrygian,
+            Self::Lydian,
+            Self::Mixolydian,
+            Self::Aeolian,
+            Self::Locrian,
+        ]
     }
 }

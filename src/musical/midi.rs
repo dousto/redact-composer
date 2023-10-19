@@ -1,11 +1,16 @@
 use num;
 use num_derive;
 use serde::{Deserialize, Serialize};
-use std::ops::{Add, Sub};
+use std::ops::{Add, Range, Sub};
 
 use num_derive::FromPrimitive;
 
-use crate::composer::{context::CompositionContext, CompositionSegment, RenderResult, SegmentType};
+use crate::composer::render::{AdhocRenderer, RenderEngine, Renderer, Result};
+use crate::composer::{context::CompositionContext, CompositionSegment, SegmentType};
+
+pub fn renderers() -> RenderEngine {
+    RenderEngine::new() + Instrument::renderer()
+}
 
 /// Instruments defined according to [GM1 Sound Set](https://www.midi.org/specifications-old/item/gm-level-1-sound-set)
 #[derive(Debug, Hash, FromPrimitive, PartialEq, Clone, Copy, Serialize, Deserialize)]
@@ -172,15 +177,20 @@ pub enum Instrument {
 }
 
 #[typetag::serde(name = "midi::Instrument")]
-impl SegmentType for Instrument {
-    fn render(&self, begin: i32, end: i32, _context: CompositionContext) -> RenderResult {
-        RenderResult::Success(Some(vec![CompositionSegment::new(
-            crate::composer::Instrument {
-                program: (*self).into(),
+impl SegmentType for Instrument {}
+
+impl Instrument {
+    pub fn renderer() -> impl Renderer<Item = Self> {
+        AdhocRenderer::from(
+            |segment: &Self, time_range: &Range<i32>, _context: &CompositionContext| {
+                Result::Ok(vec![CompositionSegment::new(
+                    crate::composer::Instrument {
+                        program: (*segment).into(),
+                    },
+                    time_range.clone(),
+                )])
             },
-            begin,
-            end,
-        )]))
+        )
     }
 }
 
@@ -349,10 +359,11 @@ impl Instruments {
     pub fn melodic() -> Instruments {
         Self::all()
             - Self::percussive()
-            - Self::tonal_percussive()
             - Self::sound_fx()
             - Self::synth_fx()
             - Instrument::Timpani
+            - Instrument::TubularBells
+            - Instrument::PadBowed
             - Instrument::LeadFifths
             - Instrument::OrchestraHit
             - Instrument::Kalimba

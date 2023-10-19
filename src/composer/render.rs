@@ -1,6 +1,225 @@
-use std::fmt::Debug;
+use std::{
+    any::TypeId,
+    collections::HashMap,
+    fmt::Debug,
+    ops::{Add, Range},
+};
 
+use crate::error::RendererError;
 use serde::{Deserialize, Serialize};
+
+use super::{context::CompositionContext, CompositionSegment, SegmentType};
+
+pub type Result<T, E = RendererError> = std::result::Result<T, E>;
+
+/// Trait used to describe render behavior. Every render operation during composition
+/// involves a [`&SegmentType`], [`&Range<i32>`], and [`&CompositionContext`] which produces
+/// additional [`CompositionSegment`]s.
+///
+/// Renderers may return [`Vec<CompositionSegment`>] on success, or [`Error::MissingContext`] in the
+/// case that its render dependencies are not satisfied.
+pub trait Renderer {
+    type Item: SegmentType;
+
+    /// Render a [`&SegmentType`] for a given time range [`&Range<i32>`] and [`&CompositionContext`].
+    ///
+    /// Returns a [`Vec<CompositionSegment`>] on success, or [`Error::MissingContext`] in the case
+    /// that its render dependencies are not satisfied.
+    fn render(
+        &self,
+        segment: &Self::Item,
+        time_range: &Range<i32>,
+        context: &CompositionContext,
+    ) -> Result<Vec<CompositionSegment>>;
+}
+
+/// A struct implementing [`Renderer`] via a wrapped closure.
+///
+/// Most commonly used to implement a [`Renderer`] which does not require its own struct/state.
+pub struct AdhocRenderer<T>
+where
+    T: SegmentType,
+{
+    /// Boxed closure implementing the signature of [`Renderer::render`].
+    pub func: Box<dyn Fn(&T, &Range<i32>, &CompositionContext) -> Result<Vec<CompositionSegment>>>,
+}
+
+impl<F, T> From<F> for AdhocRenderer<T>
+where
+    F: Fn(&T, &Range<i32>, &CompositionContext) -> Result<Vec<CompositionSegment>> + 'static,
+    T: SegmentType,
+{
+    /// Converts a closure into an [`AdhocRenderer`].
+    fn from(value: F) -> Self {
+        AdhocRenderer {
+            func: Box::new(value),
+        }
+    }
+}
+
+impl<T> Renderer for AdhocRenderer<T>
+where
+    T: SegmentType,
+{
+    type Item = T;
+
+    /// Renders a [`SegmentType`] by calling the [`AdhocRenderer`]s wrapped closure.
+    fn render(
+        &self,
+        segment: &Self::Item,
+        time_range: &Range<i32>,
+        context: &CompositionContext,
+    ) -> Result<Vec<CompositionSegment>> {
+        (self.func)(segment, time_range, context)
+    }
+}
+
+/// A group of [`Renderer`]s for a single [`Renderer::Item`]. This group is itself a
+/// [`Renderer`] which renders as a unit, returning [`Error::MissingContext`] if any of its
+/// [`Renderer`]s do.
+pub struct RendererGroup<T> {
+    pub renderers: Vec<Box<dyn Renderer<Item = T>>>,
+}
+
+impl<T> RendererGroup<T> {
+    pub fn new() -> RendererGroup<T> {
+        RendererGroup { renderers: vec![] }
+    }
+}
+
+impl<T, R> Add<R> for RendererGroup<T>
+where
+    R: Renderer<Item = T> + 'static,
+{
+    type Output = Self;
+
+    fn add(mut self, rhs: R) -> Self::Output {
+        self.renderers.push(Box::new(rhs));
+
+        self
+    }
+}
+
+impl<T> Renderer for RendererGroup<T>
+where
+    T: SegmentType,
+{
+    type Item = T;
+
+    fn render(
+        &self,
+        segment: &Self::Item,
+        time_range: &Range<i32>,
+        context: &CompositionContext,
+    ) -> Result<Vec<CompositionSegment>> {
+        let mut result_children = vec![];
+
+        for renderer in &self.renderers {
+            result_children.append(&mut renderer.render(segment, time_range, context)?)
+        }
+
+        return Ok(result_children);
+    }
+}
+
+trait ErasedRenderer {
+    fn render(
+        &self,
+        segment: &dyn SegmentType,
+        time_range: &Range<i32>,
+        context: &CompositionContext,
+    ) -> Result<Vec<CompositionSegment>>;
+}
+
+impl<T> ErasedRenderer for T
+where
+    T: Renderer,
+{
+    fn render(
+        &self,
+        segment: &dyn SegmentType,
+        time_range: &Range<i32>,
+        context: &CompositionContext,
+    ) -> Result<Vec<CompositionSegment>> {
+        self.render(
+            segment.as_any().downcast_ref::<T::Item>().unwrap(),
+            time_range,
+            context,
+        )
+    }
+}
+
+/// A mapping of [`SegmentType`] to [`Renderer`]s (via [`TypeId`]) used to delegate rendering of generic
+/// [`CompositionSegment`]s via their [`SegmentType`]. Only one [`Renderer`] per type is allowed
+/// in the current implementation.
+pub struct RenderEngine {
+    renderers: HashMap<TypeId, Box<dyn ErasedRenderer>>,
+}
+
+impl RenderEngine {
+    pub fn new() -> RenderEngine {
+        RenderEngine {
+            renderers: HashMap::new(),
+        }
+    }
+
+    /// Adds a [`Renderer`] to this [`RenderEngine`], replacing any existing [`Renderer`] for
+    /// the corresponding [`Renderer::Item`].
+    pub fn add_renderer<R: Renderer + 'static>(&mut self, renderer: R) {
+        self.renderers
+            .insert(TypeId::of::<R::Item>(), Box::new(renderer));
+    }
+
+    /// Returns the [`Renderer`] corresponding to the given [`&dyn SegmentType`], if one exists.
+    fn renderer_for(&self, segment: &dyn SegmentType) -> Option<&Box<dyn ErasedRenderer>> {
+        self.renderers.get(&segment.as_any().type_id())
+    }
+
+    /// Determines if this [`RenderEngine`] can render a given `&dyn` [`SegmentType`]. (i.e. whether
+    /// it has a mapped renderer for the given `&dyn` [`SegmentType`])
+    pub fn can_render(&self, segment: &dyn SegmentType) -> bool {
+        self.renderers.contains_key(&segment.as_any().type_id())
+    }
+
+    /// Renders a [`SegmentType`] over a given time range with supplied context, delegating
+    /// to a [`Renderer`] mapped to its type. If no mapped [`Renderer`] exists, [`None`] is returned.
+    pub fn render(
+        &self,
+        segment: &dyn SegmentType,
+        time_range: &Range<i32>,
+        context: &CompositionContext,
+    ) -> Option<Result<Vec<CompositionSegment>>> {
+        if let Some(renderer) = self.renderer_for(segment) {
+            Some(renderer.render(segment, time_range, context))
+        } else {
+            None
+        }
+    }
+}
+
+impl<R, S> Add<R> for RenderEngine
+where
+    R: Renderer<Item = S> + 'static,
+    S: SegmentType,
+{
+    type Output = Self;
+
+    fn add(mut self, rhs: R) -> Self::Output {
+        self.add_renderer(rhs);
+
+        self
+    }
+}
+
+impl Add<RenderEngine> for RenderEngine {
+    type Output = Self;
+
+    fn add(mut self, rhs: RenderEngine) -> Self::Output {
+        self.renderers.extend(rhs.renderers);
+
+        self
+    }
+}
 
 #[derive(Debug)]
 pub struct Node<T> {

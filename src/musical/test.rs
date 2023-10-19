@@ -1,4 +1,4 @@
-use crate::musical::{Chord, Key, Scale};
+use crate::musical::{Chord, Key, Mode, Scale};
 
 use super::Notes;
 
@@ -25,7 +25,8 @@ fn middle_c_major_scale() {
         Notes::from(
             Key {
                 tonic: 0,
-                scale: Scale::Major
+                scale: Scale::Major,
+                mode: Mode::Ionian
             }
             .scale()
         )
@@ -40,7 +41,8 @@ fn middle_c_minor_scale() {
         Notes::from(
             Key {
                 tonic: 0,
-                scale: Scale::Minor
+                scale: Scale::Minor,
+                mode: Mode::Ionian
             }
             .scale()
         )
@@ -55,27 +57,13 @@ fn middle_c_natural_minor_scale() {
         Notes::from(
             Key {
                 tonic: 0,
-                scale: Scale::NaturalMinor
+                scale: Scale::NaturalMinor,
+                mode: Mode::Ionian
             }
             .scale()
         )
         .in_range(60..=72),
         [60, 62, 63, 65, 67, 68, 70, 72]
-    )
-}
-
-#[test]
-fn middle_c_harmonic_minor_scale() {
-    assert_eq!(
-        Notes::from(
-            Key {
-                tonic: 0,
-                scale: Scale::HarmonicMinor
-            }
-            .scale()
-        )
-        .in_range(60..=72),
-        [60, 62, 63, 65, 67, 68, 71, 72]
     )
 }
 

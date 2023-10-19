@@ -1,21 +1,27 @@
+use std::ops::Range;
+
 use serde::{Deserialize, Serialize};
 
+use crate::composer::context::CompositionContext;
+use crate::composer::render::{AdhocRenderer, RenderEngine};
 use crate::composer::{render::Tree, Composer, CompositionSegment, RenderSegment};
 
 use super::SegmentType;
 
 #[test]
 fn serialize() {
-    let tree =
-        Composer::compose_with_seed(CompositionSegment::new(SerdeTestComposition, 0, 100), 0);
+    let composer = Composer {
+        engine: renderers(),
+    };
+    let tree = composer.compose_with_seed(CompositionSegment::new(SerdeTestComposition, 0..100), 0);
     let serialized_tree = serde_json::to_string(&tree).unwrap();
 
-    assert_eq!(serialized_tree, "{\"type\":{\"SerdeTestComposition\":null},\"begin\":0,\"end\":100,\"seeded_from\":{\"FixedSeed\":0},\"seed\":0,\"rendered\":true,\"children\":[{\"type\":{\"SerdeTestComplexType\":{\"some_data\":\"test1\",\"more_data\":1}},\"begin\":0,\"end\":2,\"seeded_from\":\"Random\",\"seed\":1287509791301768306,\"rendered\":true},{\"type\":{\"SerdeTestComplexType\":{\"some_data\":\"test2\",\"more_data\":2}},\"begin\":2,\"end\":4,\"seeded_from\":\"Random\",\"seed\":7056400819414448509,\"rendered\":true}]}");
+    assert_eq!(serialized_tree, "{\"type\":{\"SerdeTestComposition\":null},\"start\":0,\"end\":100,\"seeded_from\":{\"FixedSeed\":0},\"seed\":0,\"rendered\":true,\"children\":[{\"type\":{\"SerdeTestComplexType\":{\"some_data\":\"test1\",\"more_data\":1}},\"start\":0,\"end\":2,\"seeded_from\":\"Random\",\"seed\":1287509791301768306,\"rendered\":true},{\"type\":{\"SerdeTestComplexType\":{\"some_data\":\"test2\",\"more_data\":2}},\"start\":2,\"end\":4,\"seeded_from\":\"Random\",\"seed\":7056400819414448509,\"rendered\":true}]}");
 }
 
 #[test]
 fn deserialize() {
-    let serialized = "{\"type\":{\"SerdeTestComposition\":null},\"begin\":0,\"end\":100,\"seeded_from\":{\"FixedSeed\":0},\"seed\":0,\"rendered\":true,\"children\":[{\"type\":{\"SerdeTestComplexType\":{\"some_data\":\"test1\",\"more_data\":1}},\"begin\":0,\"end\":2,\"seeded_from\":\"Random\",\"seed\":1287509791301768306,\"rendered\":true},{\"type\":{\"SerdeTestComplexType\":{\"some_data\":\"test2\",\"more_data\":2}},\"begin\":2,\"end\":4,\"seeded_from\":\"Random\",\"seed\":7056400819414448509,\"rendered\":true}]}";
+    let serialized = "{\"type\":{\"SerdeTestComposition\":null},\"start\":0,\"end\":100,\"seeded_from\":{\"FixedSeed\":0},\"seed\":0,\"rendered\":true,\"children\":[{\"type\":{\"SerdeTestComplexType\":{\"some_data\":\"test1\",\"more_data\":1}},\"start\":0,\"end\":2,\"seeded_from\":\"Random\",\"seed\":1287509791301768306,\"rendered\":true},{\"type\":{\"SerdeTestComplexType\":{\"some_data\":\"test2\",\"more_data\":2}},\"start\":2,\"end\":4,\"seeded_from\":\"Random\",\"seed\":7056400819414448509,\"rendered\":true}]}";
     let tree: Tree<RenderSegment> = serde_json::from_str(serialized).unwrap();
 
     // There should be three tree nodes
@@ -39,8 +45,10 @@ fn deserialize() {
 
 #[test]
 fn serde_equivalence() {
-    let tree =
-        Composer::compose_with_seed(CompositionSegment::new(SerdeTestComposition, 0, 100), 0);
+    let composer = Composer {
+        engine: renderers(),
+    };
+    let tree = composer.compose_with_seed(CompositionSegment::new(SerdeTestComposition, 0..100), 0);
     let serialized_tree = serde_json::to_string(&tree).unwrap();
 
     let deserialized_tree: Tree<RenderSegment> =
@@ -52,38 +60,36 @@ fn serde_equivalence() {
     )
 }
 
+fn renderers() -> RenderEngine {
+    RenderEngine::new()
+        + AdhocRenderer::from(
+            |_: &SerdeTestComposition, _: &Range<i32>, _: &CompositionContext| {
+                Ok(vec![
+                    CompositionSegment::new(
+                        SerdeTestComplexType {
+                            some_data: String::from("test1"),
+                            more_data: 1,
+                        },
+                        0..2,
+                    ),
+                    CompositionSegment::new(
+                        SerdeTestComplexType {
+                            some_data: String::from("test2"),
+                            more_data: 2,
+                        },
+                        2..4,
+                    ),
+                ])
+            },
+        )
+}
+
 // Some test composition components used above
 #[derive(Debug, Serialize, Deserialize)]
 struct SerdeTestComposition;
 
 #[typetag::serde]
-impl SegmentType for SerdeTestComposition {
-    fn render(
-        &self,
-        _begin: i32,
-        _end: i32,
-        _context: super::context::CompositionContext,
-    ) -> super::RenderResult {
-        super::RenderResult::Success(Some(vec![
-            CompositionSegment::new(
-                SerdeTestComplexType {
-                    some_data: String::from("test1"),
-                    more_data: 1,
-                },
-                0,
-                2,
-            ),
-            CompositionSegment::new(
-                SerdeTestComplexType {
-                    some_data: String::from("test2"),
-                    more_data: 2,
-                },
-                2,
-                4,
-            ),
-        ]))
-    }
-}
+impl SegmentType for SerdeTestComposition {}
 
 #[derive(Debug, Serialize, Deserialize)]
 struct SerdeTestComplexType {
@@ -92,8 +98,4 @@ struct SerdeTestComplexType {
 }
 
 #[typetag::serde]
-impl SegmentType for SerdeTestComplexType {
-    fn renderable(&self) -> bool {
-        false
-    }
-}
+impl SegmentType for SerdeTestComplexType {}
