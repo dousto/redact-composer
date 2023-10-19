@@ -90,7 +90,7 @@ fn during() {
     ];
 
     for ((ref_range, target_range), expectation) in test_cases {
-        let result = TimeRelation::during(ref_range).matches(target_range);
+        let result = TimeRelation::during(&ref_range).matches(target_range);
         assert!(
             result == expectation,
             "TimeRelation::during({:?}).matches({:?}) was {:?}, expected {:?}",
@@ -190,7 +190,7 @@ fn within() {
     ];
 
     for ((ref_range, target_range), expectation) in test_cases {
-        let result = TimeRelation::within(ref_range).matches(target_range);
+        let result = TimeRelation::within(&ref_range).matches(target_range);
         assert!(
             result == expectation,
             "TimeRelation::within({:?}).matches({:?}) was {:?}, expected {:?}",
@@ -226,7 +226,7 @@ fn beginning_within() {
     ];
 
     for ((ref_range, target_range), expectation) in test_cases {
-        let result = TimeRelation::beginning_within(ref_range).matches(target_range);
+        let result = TimeRelation::beginning_within(&ref_range).matches(target_range);
         assert!(
             result == expectation,
             "TimeRelation::beginning_within({:?}).matches({:?}) was {:?}, expected {:?}",
@@ -262,7 +262,7 @@ fn ending_within() {
     ];
 
     for ((ref_range, target_range), expectation) in test_cases {
-        let result = TimeRelation::ending_within(ref_range).matches(target_range);
+        let result = TimeRelation::ending_within(&ref_range).matches(target_range);
         assert!(
             result == expectation,
             "TimeRelation::ending_within({:?}).matches({:?}) was {:?}, expected {:?}",
@@ -361,7 +361,7 @@ fn overlapping() {
     ];
 
     for ((ref_range, target_range), expectation) in test_cases {
-        let result = TimeRelation::overlapping(ref_range).matches(target_range);
+        let result = TimeRelation::overlapping(&ref_range).matches(target_range);
         assert!(
             result == expectation,
             "TimeRelation::overlapping({:?}).matches({:?}) was {:?}, expected {:?}",
@@ -385,7 +385,7 @@ fn before() {
     ];
 
     for ((ref_range, target_range), expectation) in test_cases {
-        let result = TimeRelation::before(ref_range).matches(target_range);
+        let result = TimeRelation::before(&ref_range).matches(target_range);
         assert!(
             result == expectation,
             "TimeRelation::before({:?}).matches({:?}) was {:?}, expected {:?}",
