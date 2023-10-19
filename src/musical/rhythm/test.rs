@@ -17,7 +17,7 @@ fn over_should_repeat_for_longer_range() {
                 is_rest: false
             },
         ])
-        .over(0..9),
+        .over(&(0..9)),
         vec![
             Subdivision {
                 timing: 0..1,
@@ -68,7 +68,7 @@ fn should_trim_over_shorter_range() {
                 is_rest: false
             },
         ])
-        .over(0..3),
+        .over(&(0..3)),
         vec![
             Subdivision {
                 timing: 0..1,
@@ -99,7 +99,7 @@ fn should_return_same_over_same_range() {
                 is_rest: false
             },
         ])
-        .over(0..4),
+        .over(&(0..4)),
         vec![
             Subdivision {
                 timing: 0..1,
