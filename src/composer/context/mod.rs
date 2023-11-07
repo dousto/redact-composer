@@ -1,16 +1,17 @@
 use std::any::TypeId;
+use std::iter::successors;
 use std::marker::PhantomData;
+use std::ops::Bound::{Excluded, Included, Unbounded};
 use std::ops::{Bound, RangeBounds};
 
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha12Rng;
 
-use super::render::RenderEngine;
+use super::TypedSegment;
 use super::{
     render::{Node, Tree},
     RenderSegment, SegmentType,
 };
-use super::{Part, TypedSegment};
 
 use crate::composer::render;
 use crate::error::RendererError::MissingContext;
@@ -162,20 +163,14 @@ impl<'a, S: SegmentType, F: Fn(&S) -> bool> CtxQuery<'a, S, F> {
 pub struct CompositionContext<'a> {
     pub tree: &'a Tree<RenderSegment>,
     pub start: &'a Node<RenderSegment>,
-    pub render_engine: &'a RenderEngine,
 }
 
 impl<'a> CompositionContext<'a> {
     pub fn new(
         tree: &'a Tree<RenderSegment>,
         start: &'a Node<RenderSegment>,
-        render_engine: &'a RenderEngine,
     ) -> CompositionContext<'a> {
-        CompositionContext {
-            tree,
-            start,
-            render_engine,
-        }
+        CompositionContext { tree, start }
     }
 
     /// Provides a reproducible source of randomness while rendering [`SegmentType`]s. This function
@@ -188,6 +183,18 @@ impl<'a> CompositionContext<'a> {
     /// identically, producing the same random sequences.
     pub fn rng(&self) -> impl Rng {
         ChaCha12Rng::seed_from_u64(self.start.value.seed)
+    }
+
+    pub fn rng_of<T: SegmentType>(&self) -> impl Rng {
+        let mut matching_node = self.start;
+
+        while let None = matching_node.value.segment.segment_type_as::<T>() {
+            if let Some(parent_id) = matching_node.parent {
+                matching_node = &self.tree[parent_id];
+            }
+        }
+
+        ChaCha12Rng::seed_from_u64(matching_node.value.seed)
     }
 
     /// Search the in-progress composition tree for nodes of type [`SegmentType`].
@@ -268,13 +275,10 @@ impl<'a> CompositionContext<'a> {
                 let mut opt_ancestor = None;
 
                 while let Some(cursor_node) = cursor.and_then(|p_idx| self.tree.get(p_idx)) {
-                    if *search_type == (*cursor_node.value.segment.segment_type).as_any().type_id()
-                        || cursor_node
-                            .value
-                            .segment
-                            .segment_type_as::<Part>()
-                            .map(|p| *search_type == (*p.0).as_any().type_id())
-                            .unwrap_or(false)
+                    if successors(Some(&*cursor_node.value.segment.segment_type), |&s| {
+                        s.wrapped_type()
+                    })
+                    .any(|s| s.as_any().type_id() == *search_type)
                     {
                         opt_ancestor = Some(cursor_node)
                     }
@@ -298,13 +302,10 @@ impl<'a> CompositionContext<'a> {
                 let mut cursor = Some(node.idx);
 
                 while let Some(ancestor) = cursor.and_then(|p_idx| self.tree.get(p_idx)) {
-                    if (*ancestor.value.segment.segment_type).as_any().type_id() == *search_type
-                        || ancestor
-                            .value
-                            .segment
-                            .segment_type_as::<Part>()
-                            .map(|p| *search_type == (*p.0).as_any().type_id())
-                            .unwrap_or(false)
+                    if successors(Some(&*ancestor.value.segment.segment_type), |&s| {
+                        s.wrapped_type()
+                    })
+                    .any(|s| s.as_any().type_id() == *search_type)
                     {
                         return true;
                     }
@@ -316,6 +317,84 @@ impl<'a> CompositionContext<'a> {
             }
             SearchScope::Anywhere => true,
         }
+    }
+}
+
+trait RangeHelper<T>: RangeBounds<T> {
+    fn is_empty(&self) -> bool;
+    fn is_disjoint_from(&self, other: &impl RangeBounds<T>) -> bool;
+    fn intersects(&self, other: &impl RangeBounds<T>) -> bool;
+    fn is_before(&self, other: &impl RangeBounds<T>) -> bool;
+    fn is_after(&self, other: &impl RangeBounds<T>) -> bool;
+    fn begins_within(&self, other: &impl RangeBounds<T>) -> bool;
+    fn ends_within(&self, other: &impl RangeBounds<T>) -> bool;
+    fn contains_range(&self, other: &impl RangeBounds<T>) -> bool;
+    fn is_contained_by(&self, other: &impl RangeBounds<T>) -> bool;
+}
+
+impl<T, R> RangeHelper<T> for R
+where
+    T: PartialOrd,
+    R: RangeBounds<T>,
+{
+    fn is_empty(&self) -> bool {
+        match (self.start_bound(), self.end_bound()) {
+            (Bound::Included(s), Bound::Excluded(e)) => e <= s,
+            (Bound::Excluded(s), Bound::Included(e)) => e <= s,
+            (Bound::Excluded(s), Bound::Excluded(e)) => e <= s,
+            (Bound::Included(s), Bound::Included(e)) => e < s,
+            (Bound::Included(_), Bound::Unbounded) => false,
+            (Bound::Excluded(_), Bound::Unbounded) => false,
+            (Bound::Unbounded, Bound::Included(_)) => false,
+            (Bound::Unbounded, Bound::Excluded(_)) => false,
+            (Bound::Unbounded, Bound::Unbounded) => false,
+        }
+    }
+
+    fn is_before(&self, other: &impl RangeBounds<T>) -> bool {
+        <(Bound<&T>, Bound<&T>) as RangeHelper<T>>::is_empty(&(
+            other.start_bound(),
+            self.end_bound(),
+        ))
+    }
+
+    fn is_after(&self, other: &impl RangeBounds<T>) -> bool {
+        <(Bound<&T>, Bound<&T>) as RangeHelper<T>>::is_empty(&(
+            self.start_bound(),
+            other.end_bound(),
+        ))
+    }
+
+    fn is_disjoint_from(&self, other: &impl RangeBounds<T>) -> bool {
+        self.is_before(other) || self.is_after(other)
+    }
+
+    fn intersects(&self, other: &impl RangeBounds<T>) -> bool {
+        !self.is_disjoint_from(other)
+    }
+
+    fn contains_range(&self, other: &impl RangeBounds<T>) -> bool {
+        (match self.end_bound() {
+            Included(b) => other.is_before(&(Excluded(b), Unbounded)),
+            Excluded(b) => other.is_before(&(Included(b), Unbounded)),
+            Unbounded => true,
+        } && match self.start_bound() {
+            Included(b) => other.is_after(&(Unbounded, Excluded(b))),
+            Excluded(b) => other.is_after(&(Unbounded, Included(b))),
+            Unbounded => true,
+        })
+    }
+
+    fn is_contained_by(&self, other: &impl RangeBounds<T>) -> bool {
+        other.contains_range(self)
+    }
+
+    fn begins_within(&self, other: &impl RangeBounds<T>) -> bool {
+        !self.is_after(other) && other.contains_range(&(self.start_bound(), other.end_bound()))
+    }
+
+    fn ends_within(&self, other: &impl RangeBounds<T>) -> bool {
+        !self.is_before(other) && other.contains_range(&(other.start_bound(), self.end_bound()))
     }
 }
 
@@ -407,135 +486,14 @@ impl TimeRelation {
 
     // Determines if a target time range matches this relationship.
     fn matches<T: RangeBounds<i32>>(&self, target_range: T) -> bool {
-        let (tar_begin, tar_end) = BoundType::bounds_from(&target_range);
-        let (ref_begin, ref_end) = self.bounds();
-
         match self {
-            TimeRelation::During(_) => {
-                tar_begin.is_before(&ref_begin) && tar_end.is_after(&ref_end)
-            }
-            TimeRelation::Overlapping(_) => {
-                !tar_end.is_before(&ref_begin) && !tar_begin.is_after(&ref_end)
-            }
-            TimeRelation::Within(_) => {
-                ref_begin.is_before(&tar_begin) && ref_end.is_after(&tar_end)
-            }
-            TimeRelation::BeginningWithin(_) => {
-                !tar_begin.is_after(&ref_end) && tar_begin.is_after(&ref_begin)
-            }
-            TimeRelation::EndingWithin(_) => {
-                !tar_end.is_before(&ref_begin) && tar_end.is_before(&ref_end)
-            }
-            TimeRelation::Before(_) => tar_end.is_before(&ref_begin),
-            TimeRelation::After(_) => tar_begin.is_after(&ref_end),
-        }
-    }
-
-    fn bounds(&self) -> (BoundType, BoundType) {
-        match self {
-            TimeRelation::During(bounds) => BoundType::bounds_from(bounds),
-            TimeRelation::Overlapping(bounds) => BoundType::bounds_from(bounds),
-            TimeRelation::Within(bounds) => BoundType::bounds_from(bounds),
-            TimeRelation::BeginningWithin(bounds) => BoundType::bounds_from(bounds),
-            TimeRelation::EndingWithin(bounds) => BoundType::bounds_from(bounds),
-            TimeRelation::Before(bounds) => BoundType::bounds_from(bounds),
-            TimeRelation::After(bounds) => BoundType::bounds_from(bounds),
-        }
-    }
-}
-
-#[derive(Debug)]
-enum BoundType {
-    Start(Bound<i32>),
-    End(Bound<i32>),
-}
-
-impl BoundType {
-    fn bounds_from(range: &impl RangeBounds<i32>) -> (BoundType, BoundType) {
-        (
-            BoundType::Start(range.start_bound().cloned()),
-            BoundType::End(range.end_bound().cloned()),
-        )
-    }
-
-    fn is_after(&self, other: &BoundType) -> bool {
-        other.is_before(self)
-    }
-
-    // Here lies all the nastiness..
-    fn is_before(&self, other: &BoundType) -> bool {
-        match (self, other) {
-            // Bounded cases
-            (BoundType::Start(Bound::Excluded(start)), BoundType::Start(Bound::Included(end))) => {
-                start <= &(end - 1)
-            }
-            (BoundType::Start(Bound::Excluded(start)), BoundType::End(Bound::Excluded(end))) => {
-                start <= &(end - 1)
-            }
-            (BoundType::End(Bound::Included(start)), BoundType::Start(Bound::Included(end))) => {
-                start <= &(end - 1)
-            }
-            (BoundType::End(Bound::Included(start)), BoundType::End(Bound::Excluded(end))) => {
-                start <= &(end - 1)
-            }
-            (BoundType::Start(Bound::Included(start)), BoundType::Start(Bound::Included(end))) => {
-                start <= end
-            }
-            (BoundType::Start(Bound::Included(start)), BoundType::End(Bound::Excluded(end))) => {
-                start <= end
-            }
-            (BoundType::Start(Bound::Excluded(start)), BoundType::Start(Bound::Excluded(end))) => {
-                start <= end
-            }
-            (BoundType::Start(Bound::Excluded(start)), BoundType::End(Bound::Included(end))) => {
-                start <= end
-            }
-            (BoundType::End(Bound::Included(start)), BoundType::Start(Bound::Excluded(end))) => {
-                start <= end
-            }
-            (BoundType::End(Bound::Included(start)), BoundType::End(Bound::Included(end))) => {
-                start <= end
-            }
-            (BoundType::End(Bound::Excluded(start)), BoundType::Start(Bound::Included(end))) => {
-                start <= end
-            }
-            (BoundType::End(Bound::Excluded(start)), BoundType::End(Bound::Excluded(end))) => {
-                start <= end
-            }
-            (BoundType::Start(Bound::Included(start)), BoundType::Start(Bound::Excluded(end))) => {
-                start <= &(end + 1)
-            }
-            (BoundType::Start(Bound::Included(start)), BoundType::End(Bound::Included(end))) => {
-                start <= &(end + 1)
-            }
-            (BoundType::End(Bound::Excluded(start)), BoundType::Start(Bound::Excluded(end))) => {
-                start <= &(end + 1)
-            }
-            (BoundType::End(Bound::Excluded(start)), BoundType::End(Bound::Included(end))) => {
-                start <= &(end + 1)
-            }
-
-            // Unbounded cases
-            (BoundType::Start(Bound::Included(_)), BoundType::Start(Bound::Unbounded)) => false,
-            (BoundType::Start(Bound::Excluded(_)), BoundType::Start(Bound::Unbounded)) => false,
-            (BoundType::End(Bound::Included(_)), BoundType::Start(Bound::Unbounded)) => false,
-            (BoundType::End(Bound::Excluded(_)), BoundType::Start(Bound::Unbounded)) => false,
-            (BoundType::End(Bound::Unbounded), BoundType::Start(Bound::Included(_))) => false,
-            (BoundType::End(Bound::Unbounded), BoundType::Start(Bound::Excluded(_))) => false,
-            (BoundType::End(Bound::Unbounded), BoundType::Start(Bound::Unbounded)) => false,
-            (BoundType::End(Bound::Unbounded), BoundType::End(Bound::Included(_))) => false,
-            (BoundType::End(Bound::Unbounded), BoundType::End(Bound::Excluded(_))) => false,
-            (BoundType::Start(Bound::Included(_)), BoundType::End(Bound::Unbounded)) => true,
-            (BoundType::Start(Bound::Excluded(_)), BoundType::End(Bound::Unbounded)) => true,
-            (BoundType::Start(Bound::Unbounded), BoundType::Start(Bound::Included(_))) => true,
-            (BoundType::Start(Bound::Unbounded), BoundType::Start(Bound::Excluded(_))) => true,
-            (BoundType::Start(Bound::Unbounded), BoundType::Start(Bound::Unbounded)) => true,
-            (BoundType::Start(Bound::Unbounded), BoundType::End(Bound::Included(_))) => true,
-            (BoundType::Start(Bound::Unbounded), BoundType::End(Bound::Excluded(_))) => true,
-            (BoundType::Start(Bound::Unbounded), BoundType::End(Bound::Unbounded)) => true,
-            (BoundType::End(Bound::Included(_)), BoundType::End(Bound::Unbounded)) => true,
-            (BoundType::End(Bound::Excluded(_)), BoundType::End(Bound::Unbounded)) => true,
-            (BoundType::End(Bound::Unbounded), BoundType::End(Bound::Unbounded)) => true,
+            TimeRelation::During(ref_range) => target_range.contains_range(ref_range),
+            TimeRelation::Overlapping(ref_range) => target_range.intersects(ref_range),
+            TimeRelation::Within(ref_range) => target_range.is_contained_by(ref_range),
+            TimeRelation::BeginningWithin(ref_range) => target_range.begins_within(ref_range),
+            TimeRelation::EndingWithin(ref_range) => target_range.ends_within(ref_range),
+            TimeRelation::Before(ref_range) => target_range.is_before(ref_range),
+            TimeRelation::After(ref_range) => target_range.is_after(ref_range),
         }
     }
 }
@@ -599,21 +557,19 @@ impl<'a> CtxIter<'a> {
         match self.time_relation {
             TimeRelation::During(_) => self.time_relation.matches(&node.value.segment),
             TimeRelation::Overlapping(_) => self.time_relation.matches(&node.value.segment),
-            TimeRelation::Within((a, b)) => {
-                TimeRelation::overlapping(&(a, b)).matches(&node.value.segment)
-            }
-            TimeRelation::BeginningWithin((a, b)) => {
-                TimeRelation::overlapping(&(a, b)).matches(&node.value.segment)
-            }
-            TimeRelation::EndingWithin((a, b)) => {
-                TimeRelation::overlapping(&(a, b)).matches(&node.value.segment)
-            }
-            TimeRelation::Before((a, _)) => {
-                TimeRelation::overlapping(&(Bound::Unbounded, a)).matches(&node.value.segment)
-            }
-            TimeRelation::After((_, b)) => {
-                TimeRelation::overlapping(&(b, Bound::Unbounded)).matches(&node.value.segment)
-            }
+            TimeRelation::Within((a, b)) => node.value.segment.intersects(&(a, b)),
+            TimeRelation::BeginningWithin((a, b)) => node.value.segment.intersects(&(a, b)),
+            TimeRelation::EndingWithin((a, b)) => node.value.segment.intersects(&(a, b)),
+            TimeRelation::Before((a, _)) => match a {
+                Included(v) => node.value.segment.intersects(&(Unbounded, Excluded(v))),
+                Excluded(v) => node.value.segment.intersects(&(Unbounded, Included(v))),
+                Unbounded => false,
+            },
+            TimeRelation::After((_, b)) => match b {
+                Included(v) => node.value.segment.intersects(&(Excluded(v), Unbounded)),
+                Excluded(v) => node.value.segment.intersects(&(Included(v), Unbounded)),
+                Unbounded => false,
+            },
         }
     }
 }

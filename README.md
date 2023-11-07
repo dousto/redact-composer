@@ -101,7 +101,7 @@ In concept, a `Composer` is just a set of `Renderer`s, so with just a bit of glu
 
 ```rust
 let composer = Composer {
-    engine: composer::renderers() + CompositionRenderer + PlayChordsRenderer,
+    engine: RenderEngine::new() + CompositionRenderer + PlayChordsRenderer,
 };
 ```
 

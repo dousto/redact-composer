@@ -217,7 +217,7 @@ fn beginning_within() {
         ),
         (
             ((Included(1), Excluded(10)), (Excluded(9), Included(10))),
-            false,
+            true,
         ),
         (
             ((Included(1), Excluded(10)), (Excluded(2), Included(10))),

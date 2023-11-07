@@ -2,6 +2,7 @@ use std::any::Any;
 use std::borrow::Borrow;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
+use std::iter::successors;
 use std::ops::{Bound, Range, RangeBounds};
 
 use rand::{thread_rng, RngCore, SeedableRng};
@@ -14,7 +15,6 @@ use crate::error::{ConversionError, RendererError};
 
 use self::render::{RenderEngine, Tree};
 
-use crate::composer::render::{AdhocRenderer, Renderer, Result};
 use crate::musical;
 
 #[cfg(test)]
@@ -24,7 +24,7 @@ pub mod context;
 pub mod render;
 
 pub fn renderers() -> RenderEngine {
-    RenderEngine::new() + Part::renderer() + musical::renderers()
+    RenderEngine::new() + musical::renderers()
 }
 
 /// A marker trait for any object that will be used as a composition element.
@@ -44,7 +44,21 @@ pub fn renderers() -> RenderEngine {
 ///
 /// See [`render::Renderer`] for details on implementing renderers for a custom type.
 #[typetag::serde]
-pub trait SegmentType: Debug + AsAny + 'static {}
+pub trait SegmentType: Debug + AsAny + 'static {
+    /// Implemented if this is a 'passthrough' type which does not itself render, but holds a
+    /// reference to a type that does.
+    /// Mainly used to provide a common 'tag' type for an unknown set of other types, enabling
+    /// context lookups or other operations that depend on type.
+    fn wrapped_type(&self) -> Option<&dyn SegmentType> {
+        None
+    }
+}
+
+fn unwrap_segment_type(segment_type: &dyn SegmentType) -> &dyn SegmentType {
+    successors(Some(segment_type), |&s| s.wrapped_type())
+        .last()
+        .unwrap()
+}
 
 pub trait AsAny {
     fn as_any(&self) -> &dyn Any;
@@ -127,15 +141,8 @@ impl CompositionSegment {
     /// allows access downcasting to the specific type. Returns [`Option<&T>`], containing the
     /// reference to the [`SegmentType`] or [`None`] if the type does not match.
     pub fn segment_type_as<T: SegmentType>(&self) -> Option<&T> {
-        (*self.segment_type)
-            .as_any()
-            .downcast_ref::<T>()
-            .or_else(|| {
-                (*self.segment_type)
-                    .as_any()
-                    .downcast_ref::<Part>()
-                    .and_then(|p| (*p.0).as_any().downcast_ref::<T>())
-            })
+        successors(Some(&*self.segment_type), |s| s.wrapped_type())
+            .find_map(|s| s.as_any().downcast_ref::<T>())
     }
 }
 
@@ -206,7 +213,11 @@ pub struct Part(pub Box<dyn SegmentType>, pub PartType);
 
 /// This is a simple pass-through implementation to the wrapped [`SegmentType`].
 #[typetag::serde]
-impl SegmentType for Part {}
+impl SegmentType for Part {
+    fn wrapped_type(&self) -> Option<&dyn SegmentType> {
+        Some(&*self.0)
+    }
+}
 
 impl Part {
     pub fn instrument(wrapped_type: impl SegmentType) -> Part {
@@ -215,18 +226,6 @@ impl Part {
 
     pub fn percussion(wrapped_type: impl SegmentType) -> Part {
         Part(Box::new(wrapped_type), PartType::Percussion)
-    }
-
-    pub fn renderer() -> impl Renderer<Item = Self> {
-        AdhocRenderer::from(
-            |segment: &Self, time_range: &Range<i32>, context: &CompositionContext| match context
-                .render_engine
-                .render(&(*segment.0), time_range, context)
-            {
-                None => Result::Ok(vec![]),
-                Some(result) => result,
-            },
-        )
     }
 }
 
@@ -283,15 +282,10 @@ impl Composer {
                 .collect();
 
             for idx in unrendered {
-                if (*render_tree[idx].value.segment.segment_type)
-                    .as_any()
-                    .is::<Part>()
-                {
+                if let Some(_) = render_tree[idx].value.segment.segment_type_as::<Part>() {
                     let mut parent = &render_tree[idx].parent;
                     while let Some(pidx) = parent {
-                        if (*render_tree[*pidx].value.segment.segment_type)
-                            .as_any()
-                            .is::<Part>()
+                        if let Some(_) = render_tree[*pidx].value.segment.segment_type_as::<Part>()
                         {
                             panic!("{}", "Part is not allowed to be nested.");
                         }
@@ -299,11 +293,10 @@ impl Composer {
                     }
                 }
 
-                let composition_context =
-                    CompositionContext::new(&render_tree, &render_tree[idx], &self.engine);
+                let composition_context = CompositionContext::new(&render_tree, &render_tree[idx]);
 
                 let result = self.engine.render(
-                    &*render_tree[idx].value.segment.segment_type,
+                    unwrap_segment_type(&*render_tree[idx].value.segment.segment_type),
                     &render_tree[idx].value.segment.time_range,
                     &composition_context,
                 );
@@ -319,7 +312,9 @@ impl Composer {
                             let inserts: Vec<RenderSegment> = segments
                                 .into_iter()
                                 .map(|s| RenderSegment {
-                                    rendered: !self.engine.can_render(&*s.segment_type),
+                                    rendered: !self
+                                        .engine
+                                        .can_render(unwrap_segment_type(&*s.segment_type)),
                                     seed: match s.seeded_from {
                                         SeedType::Random => {
                                             let mut hasher = XxHash64::with_seed(0);

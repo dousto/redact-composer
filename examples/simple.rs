@@ -1,9 +1,8 @@
 use redact_composer::composer::context::TimingRelation::{During, Within};
 use redact_composer::{
-    composer,
     composer::{
         context::CompositionContext,
-        render::{Renderer, Result, Tree},
+        render::{RenderEngine, Renderer, Result, Tree},
         Composer, Composition, CompositionSegment, Part, PlayNote, RenderSegment, SegmentType,
     },
     converters::MidiConverter,
@@ -17,7 +16,7 @@ use std::{fs, ops::Range};
 
 fn main() {
     let composer = Composer {
-        engine: composer::renderers() + CompositionRenderer + PlayChordsRenderer,
+        engine: RenderEngine::new() + CompositionRenderer + PlayChordsRenderer,
     };
 
     // Create a 16-beat length composition

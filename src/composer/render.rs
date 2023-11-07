@@ -1,3 +1,4 @@
+use std::ops::Index;
 use std::{
     any::TypeId,
     collections::HashMap,
@@ -354,16 +355,16 @@ impl<'a, T> Iterator for NodeIter<'a, T> {
     }
 }
 
-impl<T> std::ops::Index<usize> for Tree<T> {
-    type Output = Node<T>;
+impl<Idx: std::slice::SliceIndex<[Node<T>]>, T> Index<Idx> for Tree<T> {
+    type Output = Idx::Output;
 
-    fn index(&self, index: usize) -> &Self::Output {
+    fn index(&self, index: Idx) -> &Self::Output {
         &self.nodes[index]
     }
 }
 
-impl<T> std::ops::IndexMut<usize> for Tree<T> {
-    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+impl<Idx: std::slice::SliceIndex<[Node<T>]>, T> std::ops::IndexMut<Idx> for Tree<T> {
+    fn index_mut(&mut self, index: Idx) -> &mut Self::Output {
         &mut self.nodes[index]
     }
 }
