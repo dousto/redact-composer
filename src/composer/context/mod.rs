@@ -1,4 +1,4 @@
-use std::any::TypeId;
+use std::any::{type_name, TypeId};
 use std::iter::successors;
 use std::marker::PhantomData;
 use std::ops::Bound::{Excluded, Included, Unbounded};
@@ -140,7 +140,8 @@ impl<'a, S: SegmentType, F: Fn(&S) -> bool> CtxQuery<'a, S, F> {
 
     /// Runs the context query, and returns a single result, or [`MissingContext`] error if none are found.
     pub fn require(self) -> render::Result<TypedSegment<'a, S>> {
-        self.get().ok_or(MissingContext)
+        self.get()
+            .ok_or(MissingContext(type_name::<S>().to_string()))
     }
 
     /// Runs the context query, and returns all results, or [`MissingContext`] error if none are found.
@@ -154,7 +155,8 @@ impl<'a, S: SegmentType, F: Fn(&S) -> bool> CtxQuery<'a, S, F> {
         self,
         min_requested: usize,
     ) -> render::Result<Vec<TypedSegment<'a, S>>> {
-        self.get_at_least(min_requested).ok_or(MissingContext)
+        self.get_at_least(min_requested)
+            .ok_or(MissingContext(type_name::<S>().to_string()))
     }
 }
 

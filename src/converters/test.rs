@@ -13,6 +13,7 @@ fn tempo_splice_beginning() {
             rendered: false,
             seed: 0,
             segment: CompositionSegment::new(Composition, 0..30),
+            error: None,
         },
         None,
     );
@@ -22,6 +23,7 @@ fn tempo_splice_beginning() {
             segment: CompositionSegment::new(Tempo::from_bpm(100), 0..10),
             seed: 0,
             rendered: true,
+            error: None,
         },
         Some(0),
     );
@@ -57,6 +59,7 @@ fn tempo_splice_end() {
             rendered: false,
             seed: 0,
             segment: CompositionSegment::new(Composition, 0..30),
+            error: None,
         },
         None,
     );
@@ -66,6 +69,7 @@ fn tempo_splice_end() {
             segment: CompositionSegment::new(Tempo::from_bpm(100), 20..30),
             seed: 0,
             rendered: true,
+            error: None,
         },
         Some(0),
     );
@@ -101,6 +105,7 @@ fn tempo_splice_middle() {
             rendered: false,
             seed: 0,
             segment: CompositionSegment::new(Composition, 0..30),
+            error: None,
         },
         None,
     );
@@ -110,6 +115,7 @@ fn tempo_splice_middle() {
             segment: CompositionSegment::new(Tempo::from_bpm(100), 10..20),
             seed: 0,
             rendered: true,
+            error: None,
         },
         Some(0),
     );
@@ -152,6 +158,7 @@ fn tempo_splice_into_multiple() {
             rendered: false,
             seed: 0,
             segment: CompositionSegment::new(Composition, 0..30),
+            error: None,
         },
         None,
     );
@@ -161,6 +168,7 @@ fn tempo_splice_into_multiple() {
             segment: CompositionSegment::new(Tempo::from_bpm(100), 0..15),
             seed: 0,
             rendered: true,
+            error: None,
         },
         Some(0),
     );
@@ -170,6 +178,7 @@ fn tempo_splice_into_multiple() {
             segment: CompositionSegment::new(Tempo::from_bpm(100), 15..30),
             seed: 0,
             rendered: true,
+            error: None,
         },
         Some(0),
     );
@@ -205,6 +214,7 @@ fn tempo_splice_spanning() {
             rendered: false,
             seed: 0,
             segment: CompositionSegment::new(Composition, 0..30),
+            error: None,
         },
         None,
     );
@@ -214,6 +224,7 @@ fn tempo_splice_spanning() {
             segment: CompositionSegment::new(Tempo::from_bpm(100), 0..15),
             seed: 0,
             rendered: true,
+            error: None,
         },
         Some(0),
     );
@@ -223,6 +234,7 @@ fn tempo_splice_spanning() {
             segment: CompositionSegment::new(Tempo::from_bpm(100), 15..30),
             seed: 0,
             rendered: true,
+            error: None,
         },
         Some(0),
     );
@@ -232,6 +244,7 @@ fn tempo_splice_spanning() {
             segment: CompositionSegment::new(Tempo::from_bpm(80), 10..20),
             seed: 0,
             rendered: true,
+            error: None,
         },
         Some(0),
     );
@@ -274,6 +287,7 @@ fn tempo_splice_spanning2() {
             rendered: false,
             seed: 0,
             segment: CompositionSegment::new(Composition, 0..30),
+            error: None,
         },
         None,
     );
@@ -283,6 +297,7 @@ fn tempo_splice_spanning2() {
             segment: CompositionSegment::new(Tempo::from_bpm(100), 0..10),
             seed: 0,
             rendered: true,
+            error: None,
         },
         Some(0),
     );
@@ -292,6 +307,7 @@ fn tempo_splice_spanning2() {
             segment: CompositionSegment::new(Tempo::from_bpm(100), 10..20),
             seed: 0,
             rendered: true,
+            error: None,
         },
         Some(0),
     );
@@ -301,6 +317,7 @@ fn tempo_splice_spanning2() {
             segment: CompositionSegment::new(Tempo::from_bpm(100), 20..30),
             seed: 0,
             rendered: true,
+            error: None,
         },
         Some(0),
     );
@@ -310,6 +327,7 @@ fn tempo_splice_spanning2() {
             segment: CompositionSegment::new(Tempo::from_bpm(80), 5..25),
             seed: 0,
             rendered: true,
+            error: None,
         },
         Some(0),
     );
@@ -352,6 +370,7 @@ fn tempo_splice_spanning3() {
             rendered: false,
             seed: 0,
             segment: CompositionSegment::new(Composition, 0..30),
+            error: None,
         },
         None,
     );
@@ -361,6 +380,7 @@ fn tempo_splice_spanning3() {
             segment: CompositionSegment::new(Tempo::from_bpm(100), 0..10),
             seed: 0,
             rendered: true,
+            error: None,
         },
         Some(0),
     );
@@ -370,6 +390,7 @@ fn tempo_splice_spanning3() {
             segment: CompositionSegment::new(Tempo::from_bpm(100), 10..20),
             seed: 0,
             rendered: true,
+            error: None,
         },
         Some(0),
     );
@@ -379,6 +400,7 @@ fn tempo_splice_spanning3() {
             segment: CompositionSegment::new(Tempo::from_bpm(100), 20..30),
             seed: 0,
             rendered: true,
+            error: None,
         },
         Some(0),
     );
@@ -388,6 +410,7 @@ fn tempo_splice_spanning3() {
             segment: CompositionSegment::new(Tempo::from_bpm(80), 0..25),
             seed: 0,
             rendered: true,
+            error: None,
         },
         Some(0),
     );
@@ -423,6 +446,7 @@ fn tempo_splice_spanning4() {
             rendered: false,
             seed: 0,
             segment: CompositionSegment::new(Composition, 0..30),
+            error: None,
         },
         None,
     );
@@ -432,6 +456,7 @@ fn tempo_splice_spanning4() {
             segment: CompositionSegment::new(Tempo::from_bpm(100), 0..10),
             seed: 0,
             rendered: true,
+            error: None,
         },
         Some(0),
     );
@@ -441,6 +466,7 @@ fn tempo_splice_spanning4() {
             segment: CompositionSegment::new(Tempo::from_bpm(100), 10..20),
             seed: 0,
             rendered: true,
+            error: None,
         },
         Some(0),
     );
@@ -450,6 +476,7 @@ fn tempo_splice_spanning4() {
             segment: CompositionSegment::new(Tempo::from_bpm(100), 20..30),
             seed: 0,
             rendered: true,
+            error: None,
         },
         Some(0),
     );
@@ -459,6 +486,7 @@ fn tempo_splice_spanning4() {
             segment: CompositionSegment::new(Tempo::from_bpm(80), 5..30),
             seed: 0,
             rendered: true,
+            error: None,
         },
         Some(0),
     );
@@ -494,6 +522,7 @@ fn tempo_splice_multi_spanning() {
             rendered: false,
             seed: 0,
             segment: CompositionSegment::new(Composition, 0..40),
+            error: None,
         },
         None,
     );
@@ -503,6 +532,7 @@ fn tempo_splice_multi_spanning() {
             segment: CompositionSegment::new(Tempo::from_bpm(100), 0..10),
             seed: 0,
             rendered: true,
+            error: None,
         },
         Some(0),
     );
@@ -512,6 +542,7 @@ fn tempo_splice_multi_spanning() {
             segment: CompositionSegment::new(Tempo::from_bpm(100), 10..20),
             seed: 0,
             rendered: true,
+            error: None,
         },
         Some(0),
     );
@@ -521,6 +552,7 @@ fn tempo_splice_multi_spanning() {
             segment: CompositionSegment::new(Tempo::from_bpm(100), 20..30),
             seed: 0,
             rendered: true,
+            error: None,
         },
         Some(0),
     );
@@ -530,6 +562,7 @@ fn tempo_splice_multi_spanning() {
             segment: CompositionSegment::new(Tempo::from_bpm(100), 30..40),
             seed: 0,
             rendered: true,
+            error: None,
         },
         Some(0),
     );
@@ -539,6 +572,7 @@ fn tempo_splice_multi_spanning() {
             segment: CompositionSegment::new(Tempo::from_bpm(80), 10..30),
             seed: 0,
             rendered: true,
+            error: None,
         },
         Some(0),
     );

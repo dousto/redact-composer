@@ -237,6 +237,8 @@ pub struct RenderSegment {
     pub segment: CompositionSegment,
     pub seed: u64,
     pub rendered: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<RendererError>,
 }
 
 pub struct Composer {
@@ -259,6 +261,7 @@ impl Composer {
                 rendered: false,
                 seed,
                 segment: seg,
+                error: None,
             },
             None,
         );
@@ -307,7 +310,9 @@ impl Composer {
 
                 if let Some(render_res) = result {
                     match render_res {
-                        render::Result::Err(RendererError::MissingContext) => (),
+                        render::Result::Err(err) => {
+                            render_tree[idx].value.error = Some(err);
+                        }
                         render::Result::Ok(segments) => {
                             let inserts: Vec<RenderSegment> = segments
                                 .into_iter()
@@ -329,6 +334,7 @@ impl Composer {
                                         }
                                     },
                                     segment: s,
+                                    error: None,
                                 })
                                 .collect();
 
@@ -337,6 +343,7 @@ impl Composer {
                             }
 
                             render_tree[idx].value.rendered = true;
+                            render_tree[idx].value.error = None;
                             rendered_node_count += 1;
                         }
                     }

@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::composer::context::CompositionContext;
 use crate::composer::render::{AdhocRenderer, RenderEngine};
 use crate::composer::{render::Tree, Composer, CompositionSegment, RenderSegment};
+use crate::error::RendererError::MissingContext;
 
 use super::SegmentType;
 
@@ -16,7 +17,7 @@ fn serialize() {
     let tree = composer.compose_with_seed(CompositionSegment::new(SerdeTestComposition, 0..100), 0);
     let serialized_tree = serde_json::to_string(&tree).unwrap();
 
-    assert_eq!(serialized_tree, "{\"type\":{\"SerdeTestComposition\":null},\"start\":0,\"end\":100,\"seeded_from\":{\"FixedSeed\":0},\"seed\":0,\"rendered\":true,\"children\":[{\"type\":{\"SerdeTestComplexType\":{\"some_data\":\"test1\",\"more_data\":1}},\"start\":0,\"end\":2,\"seeded_from\":\"Random\",\"seed\":1287509791301768306,\"rendered\":true},{\"type\":{\"SerdeTestComplexType\":{\"some_data\":\"test2\",\"more_data\":2}},\"start\":2,\"end\":4,\"seeded_from\":\"Random\",\"seed\":7056400819414448509,\"rendered\":true}]}");
+    assert_eq!(serialized_tree, "{\"type\":{\"SerdeTestComposition\":null},\"start\":0,\"end\":100,\"seeded_from\":{\"FixedSeed\":0},\"seed\":0,\"rendered\":true,\"children\":[{\"type\":{\"SerdeTestComplexType\":{\"some_data\":\"test1\",\"more_data\":1}},\"start\":0,\"end\":2,\"seeded_from\":\"Random\",\"seed\":1287509791301768306,\"rendered\":true},{\"type\":{\"SerdeTestComplexType\":{\"some_data\":\"test2\",\"more_data\":2}},\"start\":2,\"end\":4,\"seeded_from\":\"Random\",\"seed\":7056400819414448509,\"rendered\":true},{\"type\":{\"SerdeTestError\":null},\"start\":0,\"end\":4,\"seeded_from\":\"Random\",\"seed\":2005398531044258662,\"rendered\":false,\"error\":{\"MissingContext\":\"MissingType\"}}]}");
 }
 
 #[test]
@@ -79,7 +80,13 @@ fn renderers() -> RenderEngine {
                         },
                         2..4,
                     ),
+                    CompositionSegment::new(SerdeTestError, 0..4),
                 ])
+            },
+        )
+        + AdhocRenderer::from(
+            |_: &SerdeTestError, _: &Range<i32>, _: &CompositionContext| {
+                Err(MissingContext(String::from("MissingType")))
             },
         )
 }
@@ -99,3 +106,9 @@ struct SerdeTestComplexType {
 
 #[typetag::serde]
 impl SegmentType for SerdeTestComplexType {}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct SerdeTestError;
+
+#[typetag::serde]
+impl SegmentType for SerdeTestError {}
