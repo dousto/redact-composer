@@ -45,19 +45,13 @@ pub fn renderers() -> RenderEngine {
 /// See [`render::Renderer`] for details on implementing renderers for a custom type.
 #[typetag::serde]
 pub trait SegmentType: Debug + AsAny + 'static {
-    /// Implemented if this is a 'passthrough' type which does not itself render, but holds a
-    /// reference to a type that does.
+    /// Indicates another type this segment wraps. Wrapped types will render alongside their
+    /// wrappers, producing a cumulative set of children.
     /// Mainly used to provide a common 'tag' type for an unknown set of other types, enabling
     /// context lookups or other operations that depend on type.
     fn wrapped_type(&self) -> Option<&dyn SegmentType> {
         None
     }
-}
-
-fn unwrap_segment_type(segment_type: &dyn SegmentType) -> &dyn SegmentType {
-    successors(Some(segment_type), |&s| s.wrapped_type())
-        .last()
-        .unwrap()
 }
 
 pub trait AsAny {
@@ -299,7 +293,7 @@ impl Composer {
                 let composition_context = CompositionContext::new(&render_tree, &render_tree[idx]);
 
                 let result = self.engine.render(
-                    unwrap_segment_type(&*render_tree[idx].value.segment.segment_type),
+                    &*render_tree[idx].value.segment.segment_type,
                     &render_tree[idx].value.segment.time_range,
                     &composition_context,
                 );
@@ -317,9 +311,7 @@ impl Composer {
                             let inserts: Vec<RenderSegment> = segments
                                 .into_iter()
                                 .map(|s| RenderSegment {
-                                    rendered: !self
-                                        .engine
-                                        .can_render(unwrap_segment_type(&*s.segment_type)),
+                                    rendered: !self.engine.can_render(&*s.segment_type),
                                     seed: match s.seeded_from {
                                         SeedType::Random => {
                                             let mut hasher = XxHash64::with_seed(0);

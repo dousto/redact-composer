@@ -1,3 +1,4 @@
+use std::iter::successors;
 use std::ops::Index;
 use std::{
     any::TypeId,
@@ -178,22 +179,50 @@ impl RenderEngine {
 
     /// Determines if this [`RenderEngine`] can render a given `&dyn` [`SegmentType`]. (i.e. whether
     /// it has a mapped renderer for the given `&dyn` [`SegmentType`])
+    ///
+    /// This checks not only the given `&dyn` [`SegmentType`], but also any types it wraps.
+    /// See [`SegmentType::wrapped_type`].
     pub fn can_render(&self, segment: &dyn SegmentType) -> bool {
+        successors(Some(segment), |&s| s.wrapped_type()).any(|s| self.can_render_specific(s))
+    }
+
+    /// Determines if this [`RenderEngine`] can render a given `&dyn` [`SegmentType`]. Only checks
+    /// the given type, ignoring any wrapped types (unlike [`Self::can_render`]).
+    pub fn can_render_specific(&self, segment: &dyn SegmentType) -> bool {
         self.renderers.contains_key(&segment.as_any().type_id())
     }
 
-    /// Renders a [`SegmentType`] over a given time range with supplied context, delegating
-    /// to a [`Renderer`] mapped to its type. If no mapped [`Renderer`] exists, [`None`] is returned.
+    /// Renders a [`SegmentType`] over a given time range with supplied context, delegating to
+    /// [`Renderer`]s mapped to its type and wrapped types if any. If no mapped [`Renderer`]
+    /// for the type or wrapped types exists, [`None`] is returned.
     pub fn render(
         &self,
         segment: &dyn SegmentType,
         time_range: &Range<i32>,
         context: &CompositionContext,
     ) -> Option<Result<Vec<CompositionSegment>>> {
-        if let Some(renderer) = self.renderer_for(segment) {
-            Some(renderer.render(segment, time_range, context))
-        } else {
+        let renderables = successors(Some(segment), |&s| s.wrapped_type())
+            .filter(|s| self.can_render_specific(*s))
+            .collect::<Vec<_>>();
+
+        if renderables.is_empty() {
             None
+        } else {
+            let mut generated_segments = vec![];
+
+            for renderable in renderables {
+                if let Some(renderer) = self.renderer_for(renderable) {
+                    let result = renderer.render(renderable, time_range, context);
+
+                    if let Ok(mut segments) = result {
+                        generated_segments.append(&mut segments)
+                    } else {
+                        return Some(result);
+                    }
+                }
+            }
+
+            Some(Ok(generated_segments))
         }
     }
 }
