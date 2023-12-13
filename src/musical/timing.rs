@@ -1,7 +1,7 @@
 use crate::composer::context::CompositionContext;
 use crate::composer::context::TimingRelation::During;
 use crate::composer::render::{AdhocRenderer, RenderEngine, Renderer, RendererGroup};
-use crate::composer::SegmentType;
+use crate::composer::CompositionElement;
 use crate::composer::{CompositionSegment, Part, PlayNote};
 use crate::musical::midi::Instrument;
 use crate::musical::rhythm::{Rhythm, Subdivision};
@@ -18,7 +18,7 @@ pub struct Tempo {
 }
 
 #[typetag::serde]
-impl SegmentType for Tempo {}
+impl CompositionElement for Tempo {}
 
 impl Tempo {
     pub fn from_bpm(bpm: u32) -> Tempo {
@@ -41,7 +41,7 @@ pub struct TimeSignature {
 }
 
 #[typetag::serde]
-impl SegmentType for TimeSignature {}
+impl CompositionElement for TimeSignature {}
 
 impl TimeSignature {
     pub fn bar(&self) -> i32 {
@@ -73,10 +73,10 @@ impl TimeSignature {
 pub struct Metronome;
 
 #[typetag::serde]
-impl SegmentType for Metronome {}
+impl CompositionElement for Metronome {}
 
 impl Metronome {
-    pub fn new<S: SegmentType>() -> impl Renderer<Item = S> {
+    pub fn new<S: CompositionElement>() -> impl Renderer<Item = S> {
         AdhocRenderer::from(
             |_segment: &_, time_range: &Range<i32>, _context: &CompositionContext| {
                 Ok(vec![CompositionSegment::new(

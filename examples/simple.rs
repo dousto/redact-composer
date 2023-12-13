@@ -3,7 +3,8 @@ use redact_composer::{
     composer::{
         context::CompositionContext,
         render::{RenderEngine, Renderer, Result, Tree},
-        Composer, Composition, CompositionSegment, Part, PlayNote, RenderSegment, SegmentType,
+        Composer, Composition, CompositionElement, CompositionSegment, Part, PlayNote,
+        RenderSegment,
     },
     converters::MidiConverter,
     musical::{
@@ -42,7 +43,7 @@ fn main() {
 struct PlayChords;
 
 #[typetag::serde]
-impl SegmentType for PlayChords {}
+impl CompositionElement for PlayChords {}
 
 struct CompositionRenderer;
 impl Renderer for CompositionRenderer {

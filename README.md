@@ -3,7 +3,7 @@ A library for building modular musical composers.
 Currently this library is in a prototyping phase, undergoing major breaking changes frequently and without warning.
 
 Composers are built by creating a set of components, and defining how each of these components will produce
-further sub-components. In this library's domain, these correspond to the `SegmentType` and `Renderer` traits
+further sub-components. In this library's domain, these correspond to the `CompositionElement` and `Renderer` traits
 respectively.
 
 ## Example
@@ -17,7 +17,7 @@ one new component called `PlayChords`.
 struct PlayChords;
 
 #[typetag::serde]
-impl SegmentType for PlayChords {}
+impl CompositionElement for PlayChords {}
 ```
 
 With these components, we can define how they generate the composition structure.
@@ -105,7 +105,6 @@ let composer = Composer {
 };
 ```
 
-Now we have a `composer` which uses our renderers as well as the default `composer::renderers()` (mainly for the `Part` component).
 Give it a spin by calling its `compose()` function.
 
 ```rust

@@ -6,7 +6,7 @@ use std::ops::{Add, Range, Sub};
 use num_derive::FromPrimitive;
 
 use crate::composer::render::{AdhocRenderer, RenderEngine, Renderer, Result};
-use crate::composer::{context::CompositionContext, CompositionSegment, SegmentType};
+use crate::composer::{context::CompositionContext, CompositionElement, CompositionSegment};
 
 pub fn renderers() -> RenderEngine {
     RenderEngine::new() + Instrument::renderer()
@@ -177,7 +177,7 @@ pub enum Instrument {
 }
 
 #[typetag::serde(name = "midi::Instrument")]
-impl SegmentType for Instrument {}
+impl CompositionElement for Instrument {}
 
 impl Instrument {
     pub fn renderer() -> impl Renderer<Item = Self> {

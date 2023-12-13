@@ -20,7 +20,7 @@ impl MidiConverter {
     pub fn convert(tree: &Tree<RenderSegment>) -> Smf {
         let track_subtrees: Vec<&Node<RenderSegment>> = tree
             .iter()
-            .filter(|n| n.value.segment.segment_type_as::<Part>().is_some())
+            .filter(|n| n.value.segment.element_as::<Part>().is_some())
             .collect();
 
         let channel_assignments = Self::assign_channels(&track_subtrees);
@@ -85,7 +85,7 @@ impl MidiConverter {
                         .0
                         .value
                         .segment
-                        .segment_type_as::<Part>()
+                        .element_as::<Part>()
                         .unwrap()
                         .1
                     {
@@ -101,7 +101,7 @@ impl MidiConverter {
             }
 
             // Assign a channel from available channels
-            let channel_pool = match next_part.value.segment.segment_type_as::<Part>().unwrap().1 {
+            let channel_pool = match next_part.value.segment.element_as::<Part>().unwrap().1 {
                 PartType::Instrument => &mut inst_channels,
                 PartType::Percussion => &mut drum_channels,
             };
@@ -210,7 +210,7 @@ impl MidiConverter {
         let mut abs_time_events: Vec<(i32, TrackEvent)> = tree
             .node_iter(subtree_root)
             .flat_map(|n| {
-                if let Some(instrument) = n.value.segment.segment_type_as::<Instrument>() {
+                if let Some(instrument) = n.value.segment.element_as::<Instrument>() {
                     Some(vec![(
                         n.value.segment.time_range.start,
                         TrackEvent {
@@ -223,7 +223,7 @@ impl MidiConverter {
                             },
                         },
                     )])
-                } else if let Some(play_note) = n.value.segment.segment_type_as::<PlayNote>() {
+                } else if let Some(play_note) = n.value.segment.element_as::<PlayNote>() {
                     Some(vec![
                         (
                             n.value.segment.time_range.start,

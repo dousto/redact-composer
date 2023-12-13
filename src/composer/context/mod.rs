@@ -10,7 +10,7 @@ use rand_chacha::ChaCha12Rng;
 use super::TypedSegment;
 use super::{
     render::{Node, Tree},
-    RenderSegment, SegmentType,
+    CompositionElement, RenderSegment,
 };
 
 use crate::composer::render;
@@ -37,7 +37,7 @@ pub enum TimingRelation {
     After,
 }
 
-pub struct CtxQuery<'a, S: SegmentType, F: Fn(&S) -> bool> {
+pub struct CtxQuery<'a, S: CompositionElement, F: Fn(&S) -> bool> {
     ctx: &'a CompositionContext<'a>,
     timing: Option<TimeRelation>,
     scope: Option<SearchScope>,
@@ -45,7 +45,7 @@ pub struct CtxQuery<'a, S: SegmentType, F: Fn(&S) -> bool> {
     __: PhantomData<S>,
 }
 
-impl<'a, S: SegmentType, F: Fn(&S) -> bool> CtxQuery<'a, S, F> {
+impl<'a, S: CompositionElement, F: Fn(&S) -> bool> CtxQuery<'a, S, F> {
     /// Restrict the search to segments matching a given time relationship.
     pub fn with_timing<R: RangeBounds<i32>>(
         mut self,
@@ -70,16 +70,16 @@ impl<'a, S: SegmentType, F: Fn(&S) -> bool> CtxQuery<'a, S, F> {
         self
     }
 
-    /// Restrict the search to segments generated within a given [`SegmentType`].
-    pub fn within<S2: SegmentType>(mut self) -> Self {
+    /// Restrict the search to segments generated within a given [`CompositionElement`].
+    pub fn within<S2: CompositionElement>(mut self) -> Self {
         self.scope = Some(SearchScope::Within(TypeId::of::<S2>()));
 
         self
     }
 
     /// Restrict the search to segments generated within the initiator's ancestor of the
-    /// given [`SegmentType`].
-    pub fn within_ancestor<S2: SegmentType>(mut self) -> Self {
+    /// given [`CompositionElement`].
+    pub fn within_ancestor<S2: CompositionElement>(mut self) -> Self {
         self.scope = Some(SearchScope::WithinAncestor(TypeId::of::<S2>()));
 
         self
@@ -175,7 +175,7 @@ impl<'a> CompositionContext<'a> {
         CompositionContext { tree, start }
     }
 
-    /// Provides a reproducible source of randomness while rendering [`SegmentType`]s. This function
+    /// Provides a reproducible source of randomness while rendering [`CompositionElement`]s. This function
     /// creates and returns an [`Rng`] (currently implemented with [`ChaCha12Rng`]) seeded from a
     /// parent Rng of the [`super::Composer`].
     ///
@@ -187,10 +187,10 @@ impl<'a> CompositionContext<'a> {
         ChaCha12Rng::seed_from_u64(self.start.value.seed)
     }
 
-    pub fn rng_of<T: SegmentType>(&self) -> impl Rng {
+    pub fn rng_of<T: CompositionElement>(&self) -> impl Rng {
         let mut matching_node = self.start;
 
-        while let None = matching_node.value.segment.segment_type_as::<T>() {
+        while let None = matching_node.value.segment.element_as::<T>() {
             if let Some(parent_id) = matching_node.parent {
                 matching_node = &self.tree[parent_id];
             }
@@ -199,9 +199,9 @@ impl<'a> CompositionContext<'a> {
         ChaCha12Rng::seed_from_u64(matching_node.value.seed)
     }
 
-    /// Search the in-progress composition tree for nodes of type [`SegmentType`].
+    /// Search the in-progress composition tree for nodes of type [`CompositionElement`].
     /// Returns a [`CtxQuery`], allowing further specifications before running the search.
-    pub fn find<S: SegmentType>(&self) -> CtxQuery<S, impl Fn(&S) -> bool> {
+    pub fn find<S: CompositionElement>(&self) -> CtxQuery<S, impl Fn(&S) -> bool> {
         CtxQuery {
             ctx: &self,
             timing: None,
@@ -211,9 +211,9 @@ impl<'a> CompositionContext<'a> {
         }
     }
 
-    /// Search the in-progress composition tree for all [`SegmentType`]s within the given
+    /// Search the in-progress composition tree for all [`CompositionElement`]s within the given
     /// [`TimeRelation`] and [`SearchScope`] criteria that match the provided closure. Returns
-    /// a vector of [`TypedSegment`]s referencing the matching [`SegmentType`]s if any were found,
+    /// a vector of [`TypedSegment`]s referencing the matching [`CompositionElement`]s if any were found,
     /// or else [`None`]. This is useful if the timing data is required.
     ///
     /// # Example
@@ -240,7 +240,7 @@ impl<'a> CompositionContext<'a> {
     /// ```
     ///
     /// See [`TimeRelation`] and [`SearchScope`] for specifying the match criteria.
-    fn get_all_segments_where<F: SegmentType>(
+    fn get_all_segments_where<F: CompositionElement>(
         &self,
         where_clause: impl Fn(&F) -> bool,
         relation: TimeRelation,
@@ -253,7 +253,7 @@ impl<'a> CompositionContext<'a> {
                 && node
                     .value
                     .segment
-                    .segment_type_as::<F>()
+                    .element_as::<F>()
                     .map(&where_clause)
                     .unwrap_or(false)
             {
@@ -277,8 +277,8 @@ impl<'a> CompositionContext<'a> {
                 let mut opt_ancestor = None;
 
                 while let Some(cursor_node) = cursor.and_then(|p_idx| self.tree.get(p_idx)) {
-                    if successors(Some(&*cursor_node.value.segment.segment_type), |&s| {
-                        s.wrapped_type()
+                    if successors(Some(&*cursor_node.value.segment.element), |&s| {
+                        s.wrapped_element()
                     })
                     .any(|s| s.as_any().type_id() == *search_type)
                     {
@@ -304,8 +304,8 @@ impl<'a> CompositionContext<'a> {
                 let mut cursor = Some(node.idx);
 
                 while let Some(ancestor) = cursor.and_then(|p_idx| self.tree.get(p_idx)) {
-                    if successors(Some(&*ancestor.value.segment.segment_type), |&s| {
-                        s.wrapped_type()
+                    if successors(Some(&*ancestor.value.segment.element), |&s| {
+                        s.wrapped_element()
                     })
                     .any(|s| s.as_any().type_id() == *search_type)
                     {

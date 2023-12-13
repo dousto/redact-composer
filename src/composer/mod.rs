@@ -30,7 +30,7 @@ pub fn renderers() -> RenderEngine {
 /// A marker trait for any object that will be used as a composition element.
 /// To make a custom type for use as a composition element, simply do:
 /// ```
-/// # use redact_composer::composer::SegmentType;
+/// # use redact_composer::composer::CompositionElement;
 /// # use serde::{Deserialize, Serialize};
 /// #[derive(Debug, Serialize, Deserialize)]
 /// pub struct CustomCompositionElement {
@@ -39,17 +39,17 @@ pub fn renderers() -> RenderEngine {
 ///
 /// // This macro is needed to be able to serialize/deserialize custom types
 /// #[typetag::serde]
-/// impl SegmentType for CustomCompositionElement {}
+/// impl CompositionElement for CustomCompositionElement {}
 /// ```
 ///
 /// See [`render::Renderer`] for details on implementing renderers for a custom type.
 #[typetag::serde]
-pub trait SegmentType: Debug + AsAny + 'static {
-    /// Indicates another type this segment wraps. Wrapped types will render alongside their
+pub trait CompositionElement: Debug + AsAny + 'static {
+    /// Indicates another element this one wraps. Wrapped elements will render alongside their
     /// wrappers, producing a cumulative set of children.
-    /// Mainly used to provide a common 'tag' type for an unknown set of other types, enabling
-    /// context lookups or other operations that depend on type.
-    fn wrapped_type(&self) -> Option<&dyn SegmentType> {
+    /// Mainly used to provide a common 'tag' type for an unknown set of other elements, enabling
+    /// context lookups or other operations that depend on element type.
+    fn wrapped_element(&self) -> Option<&dyn CompositionElement> {
         None
     }
 }
@@ -58,7 +58,7 @@ pub trait AsAny {
     fn as_any(&self) -> &dyn Any;
 }
 
-impl<T: SegmentType> AsAny for T {
+impl<T: CompositionElement> AsAny for T {
     fn as_any(&self) -> &dyn Any {
         self
     }
@@ -71,19 +71,19 @@ enum SeedType {
 }
 
 #[derive(Debug)]
-pub struct TypedSegment<'a, T: SegmentType> {
+pub struct TypedSegment<'a, T: CompositionElement> {
     pub value: &'a T,
     pub time_range: Range<i32>,
 }
 
 impl<'a, T> TryFrom<&'a CompositionSegment> for TypedSegment<'a, T>
 where
-    T: SegmentType,
+    T: CompositionElement,
 {
     type Error = ConversionError;
 
     fn try_from(value: &'a CompositionSegment) -> std::result::Result<Self, Self::Error> {
-        if let Some(converted) = value.segment_type_as::<T>() {
+        if let Some(converted) = value.element_as::<T>() {
             Ok(TypedSegment {
                 value: converted,
                 time_range: value.time_range.clone(),
@@ -94,11 +94,10 @@ where
     }
 }
 
-/// Simple struct to represent a given [`SegmentType`] which spans over a time range (`start..end`).
+/// Simple struct to represent a given [`CompositionElement`] which spans over a time range (`start..end`).
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CompositionSegment {
-    #[serde(rename = "type")]
-    pub segment_type: Box<dyn SegmentType>,
+    pub element: Box<dyn CompositionElement>,
     #[serde(flatten)]
     pub time_range: Range<i32>,
     seeded_from: SeedType,
@@ -106,11 +105,11 @@ pub struct CompositionSegment {
 
 impl CompositionSegment {
     pub fn new<T: Borrow<Range<i32>>>(
-        composition_type: impl SegmentType,
+        composition_type: impl CompositionElement,
         time_range: T,
     ) -> CompositionSegment {
         CompositionSegment {
-            segment_type: Box::new(composition_type),
+            element: Box::new(composition_type),
             time_range: time_range.borrow().clone(),
             seeded_from: SeedType::Random,
         }
@@ -118,24 +117,24 @@ impl CompositionSegment {
 
     pub fn named<T: Borrow<Range<i32>>>(
         hashable_name: impl Hash,
-        composition_type: impl SegmentType,
+        composition_type: impl CompositionElement,
         time_range: T,
     ) -> CompositionSegment {
         let mut hasher = XxHash64::with_seed(0);
         hashable_name.hash(&mut hasher);
 
         CompositionSegment {
-            segment_type: Box::new(composition_type),
+            element: Box::new(composition_type),
             time_range: time_range.borrow().clone(),
             seeded_from: SeedType::FixedSeed(hasher.finish()),
         }
     }
 
-    /// Due to the type-erased nature of a [`CompositionSegment`]'s [`SegmentType`], this method
+    /// Due to the type-erased nature of a [`CompositionSegment`]'s [`CompositionElement`], this method
     /// allows access downcasting to the specific type. Returns [`Option<&T>`], containing the
-    /// reference to the [`SegmentType`] or [`None`] if the type does not match.
-    pub fn segment_type_as<T: SegmentType>(&self) -> Option<&T> {
-        successors(Some(&*self.segment_type), |s| s.wrapped_type())
+    /// reference to the [`CompositionElement`] or [`None`] if the type does not match.
+    pub fn element_as<T: CompositionElement>(&self) -> Option<&T> {
+        successors(Some(&*self.element), |s| s.wrapped_element())
             .find_map(|s| s.as_any().downcast_ref::<T>())
     }
 }
@@ -160,7 +159,7 @@ impl RangeBounds<i32> for &CompositionSegment {
     }
 }
 
-impl<'a, T: SegmentType> RangeBounds<i32> for TypedSegment<'a, T> {
+impl<'a, T: CompositionElement> RangeBounds<i32> for TypedSegment<'a, T> {
     fn start_bound(&self) -> Bound<&i32> {
         self.time_range.start_bound()
     }
@@ -170,12 +169,12 @@ impl<'a, T: SegmentType> RangeBounds<i32> for TypedSegment<'a, T> {
     }
 }
 
-/// As a convention, this [`SegmentType`] indicates the root of a composition tree.
+/// As a convention, this [`CompositionElement`] indicates the root of a composition tree.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Composition;
 
 #[typetag::serde]
-impl SegmentType for Composition {}
+impl CompositionElement for Composition {}
 
 /// Note: Use [`redact_composer::musical::midi::Instrument`] for the time being.
 #[derive(Debug, Serialize, Deserialize)]
@@ -184,7 +183,7 @@ pub struct Instrument {
 }
 
 #[typetag::serde]
-impl SegmentType for Instrument {}
+impl CompositionElement for Instrument {}
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct PlayNote {
@@ -193,7 +192,7 @@ pub struct PlayNote {
 }
 
 #[typetag::serde]
-impl SegmentType for PlayNote {}
+impl CompositionElement for PlayNote {}
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum PartType {
@@ -203,22 +202,22 @@ pub enum PartType {
 
 /// Part is a special signifier to group notes that are to be played by a single instrument at a time.
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Part(pub Box<dyn SegmentType>, pub PartType);
+pub struct Part(pub Box<dyn CompositionElement>, pub PartType);
 
-/// This is a simple pass-through implementation to the wrapped [`SegmentType`].
+/// This is a simple pass-through implementation to the wrapped [`CompositionElement`].
 #[typetag::serde]
-impl SegmentType for Part {
-    fn wrapped_type(&self) -> Option<&dyn SegmentType> {
+impl CompositionElement for Part {
+    fn wrapped_element(&self) -> Option<&dyn CompositionElement> {
         Some(&*self.0)
     }
 }
 
 impl Part {
-    pub fn instrument(wrapped_type: impl SegmentType) -> Part {
+    pub fn instrument(wrapped_type: impl CompositionElement) -> Part {
         Part(Box::new(wrapped_type), PartType::Instrument)
     }
 
-    pub fn percussion(wrapped_type: impl SegmentType) -> Part {
+    pub fn percussion(wrapped_type: impl CompositionElement) -> Part {
         Part(Box::new(wrapped_type), PartType::Percussion)
     }
 }
@@ -279,11 +278,10 @@ impl Composer {
                 .collect();
 
             for idx in unrendered {
-                if let Some(_) = render_tree[idx].value.segment.segment_type_as::<Part>() {
+                if let Some(_) = render_tree[idx].value.segment.element_as::<Part>() {
                     let mut parent = &render_tree[idx].parent;
                     while let Some(pidx) = parent {
-                        if let Some(_) = render_tree[*pidx].value.segment.segment_type_as::<Part>()
-                        {
+                        if let Some(_) = render_tree[*pidx].value.segment.element_as::<Part>() {
                             panic!("{}", "Part is not allowed to be nested.");
                         }
                         parent = &render_tree[*pidx].parent
@@ -293,7 +291,7 @@ impl Composer {
                 let composition_context = CompositionContext::new(&render_tree, &render_tree[idx]);
 
                 let result = self.engine.render(
-                    &*render_tree[idx].value.segment.segment_type,
+                    &*render_tree[idx].value.segment.element,
                     &render_tree[idx].value.segment.time_range,
                     &composition_context,
                 );
@@ -311,7 +309,7 @@ impl Composer {
                             let inserts: Vec<RenderSegment> = segments
                                 .into_iter()
                                 .map(|s| RenderSegment {
-                                    rendered: !self.engine.can_render(&*s.segment_type),
+                                    rendered: !self.engine.can_render(&*s.element),
                                     seed: match s.seeded_from {
                                         SeedType::Random => {
                                             let mut hasher = XxHash64::with_seed(0);

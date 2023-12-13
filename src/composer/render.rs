@@ -10,20 +10,20 @@ use std::{
 use crate::error::RendererError;
 use serde::{Deserialize, Serialize};
 
-use super::{context::CompositionContext, CompositionSegment, SegmentType};
+use super::{context::CompositionContext, CompositionElement, CompositionSegment};
 
 pub type Result<T, E = RendererError> = std::result::Result<T, E>;
 
 /// Trait used to describe render behavior. Every render operation during composition
-/// involves a [`&SegmentType`], [`&Range<i32>`], and [`&CompositionContext`] which produces
+/// involves a [`&CompositionElement`], [`&Range<i32>`], and [`&CompositionContext`] which produces
 /// additional [`CompositionSegment`]s.
 ///
 /// Renderers may return [`Vec<CompositionSegment`>] on success, or [`Error::MissingContext`] in the
 /// case that its render dependencies are not satisfied.
 pub trait Renderer {
-    type Item: SegmentType;
+    type Item: CompositionElement;
 
-    /// Render a [`&SegmentType`] for a given time range [`&Range<i32>`] and [`&CompositionContext`].
+    /// Render a [`&CompositionElement`] for a given time range [`&Range<i32>`] and [`&CompositionContext`].
     ///
     /// Returns a [`Vec<CompositionSegment`>] on success, or [`Error::MissingContext`] in the case
     /// that its render dependencies are not satisfied.
@@ -40,7 +40,7 @@ pub trait Renderer {
 /// Most commonly used to implement a [`Renderer`] which does not require its own struct/state.
 pub struct AdhocRenderer<T>
 where
-    T: SegmentType,
+    T: CompositionElement,
 {
     /// Boxed closure implementing the signature of [`Renderer::render`].
     pub func: Box<dyn Fn(&T, &Range<i32>, &CompositionContext) -> Result<Vec<CompositionSegment>>>,
@@ -49,7 +49,7 @@ where
 impl<F, T> From<F> for AdhocRenderer<T>
 where
     F: Fn(&T, &Range<i32>, &CompositionContext) -> Result<Vec<CompositionSegment>> + 'static,
-    T: SegmentType,
+    T: CompositionElement,
 {
     /// Converts a closure into an [`AdhocRenderer`].
     fn from(value: F) -> Self {
@@ -61,11 +61,11 @@ where
 
 impl<T> Renderer for AdhocRenderer<T>
 where
-    T: SegmentType,
+    T: CompositionElement,
 {
     type Item = T;
 
-    /// Renders a [`SegmentType`] by calling the [`AdhocRenderer`]s wrapped closure.
+    /// Renders a [`CompositionElement`] by calling the [`AdhocRenderer`]s wrapped closure.
     fn render(
         &self,
         segment: &Self::Item,
@@ -104,7 +104,7 @@ where
 
 impl<T> Renderer for RendererGroup<T>
 where
-    T: SegmentType,
+    T: CompositionElement,
 {
     type Item = T;
 
@@ -127,7 +127,7 @@ where
 trait ErasedRenderer {
     fn render(
         &self,
-        segment: &dyn SegmentType,
+        segment: &dyn CompositionElement,
         time_range: &Range<i32>,
         context: &CompositionContext,
     ) -> Result<Vec<CompositionSegment>>;
@@ -139,7 +139,7 @@ where
 {
     fn render(
         &self,
-        segment: &dyn SegmentType,
+        segment: &dyn CompositionElement,
         time_range: &Range<i32>,
         context: &CompositionContext,
     ) -> Result<Vec<CompositionSegment>> {
@@ -151,8 +151,8 @@ where
     }
 }
 
-/// A mapping of [`SegmentType`] to [`Renderer`]s (via [`TypeId`]) used to delegate rendering of generic
-/// [`CompositionSegment`]s via their [`SegmentType`]. Only one [`Renderer`] per type is allowed
+/// A mapping of [`CompositionElement`] to [`Renderer`]s (via [`TypeId`]) used to delegate rendering of generic
+/// [`CompositionSegment`]s via their [`CompositionElement`]. Only one [`Renderer`] per type is allowed
 /// in the current implementation.
 pub struct RenderEngine {
     renderers: HashMap<TypeId, Box<dyn ErasedRenderer>>,
@@ -172,36 +172,36 @@ impl RenderEngine {
             .insert(TypeId::of::<R::Item>(), Box::new(renderer));
     }
 
-    /// Returns the [`Renderer`] corresponding to the given [`&dyn SegmentType`], if one exists.
-    fn renderer_for(&self, segment: &dyn SegmentType) -> Option<&Box<dyn ErasedRenderer>> {
+    /// Returns the [`Renderer`] corresponding to the given [`&dyn CompositionElement`], if one exists.
+    fn renderer_for(&self, segment: &dyn CompositionElement) -> Option<&Box<dyn ErasedRenderer>> {
         self.renderers.get(&segment.as_any().type_id())
     }
 
-    /// Determines if this [`RenderEngine`] can render a given `&dyn` [`SegmentType`]. (i.e. whether
-    /// it has a mapped renderer for the given `&dyn` [`SegmentType`])
+    /// Determines if this [`RenderEngine`] can render a given `&dyn` [`CompositionElement`]. (i.e. whether
+    /// it has a mapped renderer for the given `&dyn` [`CompositionElement`])
     ///
-    /// This checks not only the given `&dyn` [`SegmentType`], but also any types it wraps.
-    /// See [`SegmentType::wrapped_type`].
-    pub fn can_render(&self, segment: &dyn SegmentType) -> bool {
-        successors(Some(segment), |&s| s.wrapped_type()).any(|s| self.can_render_specific(s))
+    /// This checks not only the given `&dyn` [`CompositionElement`], but also any types it wraps.
+    /// See [`CompositionElement::wrapped_element`].
+    pub fn can_render(&self, segment: &dyn CompositionElement) -> bool {
+        successors(Some(segment), |&s| s.wrapped_element()).any(|s| self.can_render_specific(s))
     }
 
-    /// Determines if this [`RenderEngine`] can render a given `&dyn` [`SegmentType`]. Only checks
+    /// Determines if this [`RenderEngine`] can render a given `&dyn` [`CompositionElement`]. Only checks
     /// the given type, ignoring any wrapped types (unlike [`Self::can_render`]).
-    pub fn can_render_specific(&self, segment: &dyn SegmentType) -> bool {
+    pub fn can_render_specific(&self, segment: &dyn CompositionElement) -> bool {
         self.renderers.contains_key(&segment.as_any().type_id())
     }
 
-    /// Renders a [`SegmentType`] over a given time range with supplied context, delegating to
+    /// Renders a [`CompositionElement`] over a given time range with supplied context, delegating to
     /// [`Renderer`]s mapped to its type and wrapped types if any. If no mapped [`Renderer`]
     /// for the type or wrapped types exists, [`None`] is returned.
     pub fn render(
         &self,
-        segment: &dyn SegmentType,
+        segment: &dyn CompositionElement,
         time_range: &Range<i32>,
         context: &CompositionContext,
     ) -> Option<Result<Vec<CompositionSegment>>> {
-        let renderables = successors(Some(segment), |&s| s.wrapped_type())
+        let renderables = successors(Some(segment), |&s| s.wrapped_element())
             .filter(|s| self.can_render_specific(*s))
             .collect::<Vec<_>>();
 
@@ -230,7 +230,7 @@ impl RenderEngine {
 impl<R, S> Add<R> for RenderEngine
 where
     R: Renderer<Item = S> + 'static,
-    S: SegmentType,
+    S: CompositionElement,
 {
     type Output = Self;
 

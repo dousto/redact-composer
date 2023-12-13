@@ -3,7 +3,7 @@ use std::fmt;
 use crate::composer::render::RenderEngine;
 use serde::{Deserialize, Serialize};
 
-use crate::composer::SegmentType;
+use crate::composer::CompositionElement;
 
 pub mod midi;
 pub mod rhythm;
@@ -87,7 +87,7 @@ pub struct Key {
 }
 
 #[typetag::serde]
-impl SegmentType for Key {}
+impl CompositionElement for Key {}
 
 impl Key {
     /// Returns the scale notes for this [Key], starting from the `tonic` and using relative intervals
@@ -160,7 +160,7 @@ pub enum Chord {
 }
 
 #[typetag::serde]
-impl SegmentType for Chord {}
+impl CompositionElement for Chord {}
 
 impl Chord {
     const I_STR: &str = "I";
@@ -278,7 +278,7 @@ pub enum Scale {
 }
 
 #[typetag::serde]
-impl SegmentType for Scale {}
+impl CompositionElement for Scale {}
 
 impl Scale {
     const MAJOR_STR: &str = "Major";
@@ -381,7 +381,7 @@ pub enum Mode {
 }
 
 #[typetag::serde]
-impl SegmentType for Mode {}
+impl CompositionElement for Mode {}
 
 impl Mode {
     /// Returns a [Vec]<[Mode]> of all types.

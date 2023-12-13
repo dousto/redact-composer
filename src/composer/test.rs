@@ -7,7 +7,7 @@ use crate::composer::render::{AdhocRenderer, RenderEngine};
 use crate::composer::{render::Tree, Composer, CompositionSegment, RenderSegment};
 use crate::error::RendererError::MissingContext;
 
-use super::SegmentType;
+use super::CompositionElement;
 
 #[test]
 fn serialize() {
@@ -17,19 +17,19 @@ fn serialize() {
     let tree = composer.compose_with_seed(CompositionSegment::new(SerdeTestComposition, 0..100), 0);
     let serialized_tree = serde_json::to_string(&tree).unwrap();
 
-    assert_eq!(serialized_tree, "{\"type\":{\"SerdeTestComposition\":null},\"start\":0,\"end\":100,\"seeded_from\":{\"FixedSeed\":0},\"seed\":0,\"rendered\":true,\"children\":[{\"type\":{\"SerdeTestComplexType\":{\"some_data\":\"test1\",\"more_data\":1}},\"start\":0,\"end\":2,\"seeded_from\":\"Random\",\"seed\":1287509791301768306,\"rendered\":true},{\"type\":{\"SerdeTestComplexType\":{\"some_data\":\"test2\",\"more_data\":2}},\"start\":2,\"end\":4,\"seeded_from\":\"Random\",\"seed\":7056400819414448509,\"rendered\":true},{\"type\":{\"SerdeTestError\":null},\"start\":0,\"end\":4,\"seeded_from\":\"Random\",\"seed\":2005398531044258662,\"rendered\":false,\"error\":{\"MissingContext\":\"MissingType\"}}]}");
+    assert_eq!(serialized_tree, "{\"element\":{\"SerdeTestComposition\":null},\"start\":0,\"end\":100,\"seeded_from\":{\"FixedSeed\":0},\"seed\":0,\"rendered\":true,\"children\":[{\"element\":{\"SerdeTestComplexType\":{\"some_data\":\"test1\",\"more_data\":1}},\"start\":0,\"end\":2,\"seeded_from\":\"Random\",\"seed\":1287509791301768306,\"rendered\":true},{\"element\":{\"SerdeTestComplexType\":{\"some_data\":\"test2\",\"more_data\":2}},\"start\":2,\"end\":4,\"seeded_from\":\"Random\",\"seed\":7056400819414448509,\"rendered\":true},{\"element\":{\"SerdeTestError\":null},\"start\":0,\"end\":4,\"seeded_from\":\"Random\",\"seed\":2005398531044258662,\"rendered\":false,\"error\":{\"MissingContext\":\"MissingType\"}}]}");
 }
 
 #[test]
 fn deserialize() {
-    let serialized = "{\"type\":{\"SerdeTestComposition\":null},\"start\":0,\"end\":100,\"seeded_from\":{\"FixedSeed\":0},\"seed\":0,\"rendered\":true,\"children\":[{\"type\":{\"SerdeTestComplexType\":{\"some_data\":\"test1\",\"more_data\":1}},\"start\":0,\"end\":2,\"seeded_from\":\"Random\",\"seed\":1287509791301768306,\"rendered\":true},{\"type\":{\"SerdeTestComplexType\":{\"some_data\":\"test2\",\"more_data\":2}},\"start\":2,\"end\":4,\"seeded_from\":\"Random\",\"seed\":7056400819414448509,\"rendered\":true}]}";
+    let serialized = "{\"element\":{\"SerdeTestComposition\":null},\"start\":0,\"end\":100,\"seeded_from\":{\"FixedSeed\":0},\"seed\":0,\"rendered\":true,\"children\":[{\"element\":{\"SerdeTestComplexType\":{\"some_data\":\"test1\",\"more_data\":1}},\"start\":0,\"end\":2,\"seeded_from\":\"Random\",\"seed\":1287509791301768306,\"rendered\":true},{\"element\":{\"SerdeTestComplexType\":{\"some_data\":\"test2\",\"more_data\":2}},\"start\":2,\"end\":4,\"seeded_from\":\"Random\",\"seed\":7056400819414448509,\"rendered\":true}]}";
     let tree: Tree<RenderSegment> = serde_json::from_str(serialized).unwrap();
 
     // There should be three tree nodes
     assert_eq!(tree.len(), 3);
 
     // The root should be type SerdeTestComposition
-    assert!((*tree.root().unwrap().value.segment.segment_type)
+    assert!((*tree.root().unwrap().value.segment.element)
         .as_any()
         .is::<SerdeTestComposition>());
 
@@ -39,7 +39,7 @@ fn deserialize() {
         .unwrap()
         .value
         .segment
-        .segment_type)
+        .element)
         .as_any()
         .is::<SerdeTestComplexType>()))
 }
@@ -96,7 +96,7 @@ fn renderers() -> RenderEngine {
 struct SerdeTestComposition;
 
 #[typetag::serde]
-impl SegmentType for SerdeTestComposition {}
+impl CompositionElement for SerdeTestComposition {}
 
 #[derive(Debug, Serialize, Deserialize)]
 struct SerdeTestComplexType {
@@ -105,10 +105,10 @@ struct SerdeTestComplexType {
 }
 
 #[typetag::serde]
-impl SegmentType for SerdeTestComplexType {}
+impl CompositionElement for SerdeTestComplexType {}
 
 #[derive(Debug, Serialize, Deserialize)]
 struct SerdeTestError;
 
 #[typetag::serde]
-impl SegmentType for SerdeTestError {}
+impl CompositionElement for SerdeTestError {}
