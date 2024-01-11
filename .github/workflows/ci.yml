@@ -78,8 +78,8 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: test-coverage.html
-          path: ./target/llvm-cov/html/index.html
+          name: test-coverage
+          path: ./target/llvm-cov/html/
 
   build_example:
     name: Build example
