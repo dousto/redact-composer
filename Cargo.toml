@@ -1,17 +1,21 @@
-[package]
-name = "redact-composer"
-version = "0.1.0"
-edition = "2021"
+[workspace]
+resolver = "2"
+members = [
+    "redact-composer-derive",
+    "redact-composer-core",
+    "redact-composer-musical",
+    "redact-composer-midi",
+    "redact-composer",
+]
 
-[dependencies]
-rand = "0.8.5"
-midly = { version = "0.5.3", default-features = false, features = ["std"] }
-num = "0.4.0"
-num-derive = "0.3.3"
-num-traits = "0.2.15"
-rand_chacha = "0.3.1"
-twox-hash = { version = "1.6.3", default-features = false, features = [] }
+[workspace.dependencies]
+redact-composer-derive = { path = "./redact-composer-derive", version = "0.1.0", default-features = false }
+redact-composer-core = { path = "./redact-composer-core", version = "0.1.0", default-features = false  }
+redact-composer-musical = { path = "./redact-composer-musical", version = "0.1.0", default-features = false }
+redact-composer-midi = { path = "./redact-composer-midi", version = "0.1.0", default-features = false }
+
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0.99"
-thiserror = "1.0"
-typetag = "0.2.8"
+serde_json = "1.0.108"
+typetag = "0.2.14"
+rand = "0.8.5"
+log = "0.4.20"

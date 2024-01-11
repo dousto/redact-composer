@@ -1,19 +1,36 @@
+/// General MIDI Level 1 types.
 use num;
 use num_derive;
-use serde::{Deserialize, Serialize};
-use std::ops::{Add, Range, Sub};
-
 use num_derive::FromPrimitive;
+use std::ops::{Add, Sub};
 
-use crate::composer::render::{AdhocRenderer, RenderEngine, Renderer, Result};
-use crate::composer::{context::CompositionContext, CompositionElement, CompositionSegment};
+use crate::elements::Program;
+use redact_composer_core::{derive::Element, IntoCompositionSegment};
+use redact_composer_core::{
+    elements::PlayNote,
+    render::{AdhocRenderer, RenderEngine, Renderer, Result},
+    Segment,
+};
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
+/// Default renderers used for GM [`Element`]s
+/// ([`Instrument`] and [`DrumHit`]).
 pub fn renderers() -> RenderEngine {
-    RenderEngine::new() + Instrument::renderer()
+    RenderEngine::new() + Instrument::renderer() + DrumHit::renderer()
 }
 
-/// Instruments defined according to [GM1 Sound Set](https://www.midi.org/specifications-old/item/gm-level-1-sound-set)
-#[derive(Debug, Hash, FromPrimitive, PartialEq, Clone, Copy, Serialize, Deserialize)]
+/// Types implementing [`Element`].
+pub mod elements {
+    pub use super::{DrumHit, Instrument};
+}
+
+/// Instruments defined according to
+/// [GM1 Sound Set](https://www.midi.org/specifications-old/item/gm-level-1-sound-set)
+#[derive(Element, Debug, Hash, FromPrimitive, PartialEq, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[allow(missing_docs)]
 pub enum Instrument {
     // Piano (0..=7)
     AcousticGrandPiano,
@@ -176,62 +193,63 @@ pub enum Instrument {
     Gunshot,
 }
 
-#[typetag::serde(name = "midi::Instrument")]
-impl CompositionElement for Instrument {}
+impl From<Instrument> for Program {
+    fn from(value: Instrument) -> Program {
+        Program(value as u8)
+    }
+}
 
 impl Instrument {
-    pub fn renderer() -> impl Renderer<Item = Self> {
-        AdhocRenderer::from(
-            |segment: &Self, time_range: &Range<i32>, _context: &CompositionContext| {
-                Result::Ok(vec![CompositionSegment::new(
-                    crate::composer::Instrument {
-                        program: (*segment).into(),
-                    },
-                    time_range.clone(),
-                )])
-            },
-        )
+    /// Renderer that render an [`Instrument`] segment as a [`Program`] with the same timing.
+    pub fn renderer() -> impl Renderer<Element = Self> {
+        AdhocRenderer::<Self>::new(|segment, _| {
+            Result::Ok(vec![
+                Program::from(*segment.element).into_segment(segment.timing)
+            ])
+        })
     }
 }
 
 /// ##Example
 /// ```rust
-/// # use redact_composer::musical::midi::{Instrument, Instruments};
+/// # use redact_composer_midi::gm::elements::Instrument;
+/// # use redact_composer_midi::gm::Instruments;
 /// #
 /// let pianos = Instrument::AcousticGrandPiano + Instrument::BrightAcousticPiano;
-/// assert_eq!(pianos, Instruments { programs: vec![Instrument::AcousticGrandPiano, Instrument::BrightAcousticPiano] });
+/// assert_eq!(pianos, Instruments { instruments: vec![Instrument::AcousticGrandPiano, Instrument::BrightAcousticPiano] });
 /// ```
 impl Add for Instrument {
     type Output = Instruments;
 
     fn add(self, rhs: Self) -> Self::Output {
         Instruments {
-            programs: vec![self, rhs],
+            instruments: vec![self, rhs],
         }
     }
 }
 
 /// ##Example
 /// ```rust
-/// # use redact_composer::musical::midi::{Instrument, Instruments};
+/// # use redact_composer_midi::gm::elements::Instrument;
+/// # use redact_composer_midi::gm::Instruments;
 /// #
 /// let pianos = Instrument::AcousticGrandPiano
-///                 + Instruments { programs: vec![Instrument::BrightAcousticPiano] };
-/// assert_eq!(pianos, Instruments { programs: vec![Instrument::AcousticGrandPiano, Instrument::BrightAcousticPiano] });
+///                 + Instruments { instruments: vec![Instrument::BrightAcousticPiano] };
+/// assert_eq!(pianos, Instruments { instruments: vec![Instrument::AcousticGrandPiano, Instrument::BrightAcousticPiano] });
 /// ```
 impl Add<Instruments> for Instrument {
     type Output = Instruments;
 
     fn add(self, rhs: Instruments) -> Self::Output {
         Instruments {
-            programs: vec![self],
+            instruments: vec![self],
         } + rhs
     }
 }
 
 /// ##Example
 /// ```rust
-/// # use redact_composer::musical::midi::{Instrument};
+/// # use redact_composer_midi::gm::elements::Instrument;
 /// #
 /// assert_eq!(Instrument::from(0u8), Instrument::AcousticGrandPiano);
 /// ```
@@ -250,112 +268,131 @@ impl From<Instrument> for u8 {
 /// A thin wrapper around a [`Vec<Instrument>`] with Add/Subtract operations.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Instruments {
-    pub programs: Vec<Instrument>,
+    /// A list of instruments.
+    pub instruments: Vec<Instrument>,
 }
 
 impl Instruments {
+    /// All instruments.
     pub fn all() -> Instruments {
         Instruments {
-            programs: (0..128).map(Instrument::from).collect(),
+            instruments: (0..128).map(Instrument::from).collect(),
         }
     }
 
+    /// GM1 piano instruments.
     pub fn piano() -> Instruments {
         Instruments {
-            programs: (0..8).map(Instrument::from).collect(),
+            instruments: (0..8).map(Instrument::from).collect(),
         }
     }
 
+    /// GM1 tonal percussive instruments.
     pub fn tonal_percussive() -> Instruments {
         Instruments {
-            programs: (8..16).map(Instrument::from).collect(),
+            instruments: (8..16).map(Instrument::from).collect(),
         }
     }
 
+    /// GM1 organ instruments.
     pub fn organ() -> Instruments {
         Instruments {
-            programs: (16..24).map(Instrument::from).collect(),
+            instruments: (16..24).map(Instrument::from).collect(),
         }
     }
 
+    /// GM1 guitar instruments.
     pub fn guitar() -> Instruments {
         Instruments {
-            programs: (24..32).map(Instrument::from).collect(),
+            instruments: (24..32).map(Instrument::from).collect(),
         }
     }
 
+    /// GM1 bass instruments.
     pub fn bass() -> Instruments {
         Instruments {
-            programs: (32..40).map(Instrument::from).collect(),
+            instruments: (32..40).map(Instrument::from).collect(),
         }
     }
 
+    /// GM1 string instruments.
     pub fn strings() -> Instruments {
         Instruments {
-            programs: (40..48).map(Instrument::from).collect(),
+            instruments: (40..48).map(Instrument::from).collect(),
         }
     }
 
+    /// GM1 ensemble instruments.
     pub fn ensemble() -> Instruments {
         Instruments {
-            programs: (48..56).map(Instrument::from).collect(),
+            instruments: (48..56).map(Instrument::from).collect(),
         }
     }
 
+    /// GM1 brass instruments.
     pub fn brass() -> Instruments {
         Instruments {
-            programs: (56..64).map(Instrument::from).collect(),
+            instruments: (56..64).map(Instrument::from).collect(),
         }
     }
 
+    /// GM1 reed instruments.
     pub fn reed() -> Instruments {
         Instruments {
-            programs: (64..72).map(Instrument::from).collect(),
+            instruments: (64..72).map(Instrument::from).collect(),
         }
     }
 
+    /// GM1 pipe instruments.
     pub fn pipe() -> Instruments {
         Instruments {
-            programs: (72..80).map(Instrument::from).collect(),
+            instruments: (72..80).map(Instrument::from).collect(),
         }
     }
 
+    /// GM1 synth lead instruments.
     pub fn synth_lead() -> Instruments {
         Instruments {
-            programs: (80..88).map(Instrument::from).collect(),
+            instruments: (80..88).map(Instrument::from).collect(),
         }
     }
 
+    /// GM1 synth pad instruments.
     pub fn synth_pad() -> Instruments {
         Instruments {
-            programs: (88..96).map(Instrument::from).collect(),
+            instruments: (88..96).map(Instrument::from).collect(),
         }
     }
 
+    /// GM1 synth FX instruments.
     pub fn synth_fx() -> Instruments {
         Instruments {
-            programs: (96..104).map(Instrument::from).collect(),
+            instruments: (96..104).map(Instrument::from).collect(),
         }
     }
 
+    /// GM1 ethnic instruments.
     pub fn ethnic() -> Instruments {
         Instruments {
-            programs: (104..112).map(Instrument::from).collect(),
+            instruments: (104..112).map(Instrument::from).collect(),
         }
     }
 
+    /// GM1 percussive instruments.
     pub fn percussive() -> Instruments {
         Instruments {
-            programs: (112..120).map(Instrument::from).collect(),
+            instruments: (112..120).map(Instrument::from).collect(),
         }
     }
 
+    /// GM1 sound FX instruments.
     pub fn sound_fx() -> Instruments {
         Instruments {
-            programs: (120..128).map(Instrument::from).collect(),
+            instruments: (120..128).map(Instrument::from).collect(),
         }
     }
 
+    /// Returns "melodic" instruments which have a clear tone, and are not overly percussive.
     pub fn melodic() -> Instruments {
         Self::all()
             - Self::percussive()
@@ -377,62 +414,65 @@ impl IntoIterator for Instruments {
     type IntoIter = std::vec::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.programs.into_iter()
+        self.instruments.into_iter()
     }
 }
 
 /// ##Example
 /// ```rust
-/// # use redact_composer::musical::midi::{Instrument, Instruments};
+/// # use redact_composer_midi::gm::elements::Instrument;
+/// # use redact_composer_midi::gm::Instruments;
 /// #
-/// let pianos = Instruments { programs: vec![Instrument::AcousticGrandPiano] }
-///                         + Instruments { programs: vec![Instrument::BrightAcousticPiano] };
-/// assert_eq!(pianos, Instruments { programs: vec![Instrument::AcousticGrandPiano, Instrument::BrightAcousticPiano] });
+/// let pianos = Instruments { instruments: vec![Instrument::AcousticGrandPiano] }
+///                         + Instruments { instruments: vec![Instrument::BrightAcousticPiano] };
+/// assert_eq!(pianos, Instruments { instruments: vec![Instrument::AcousticGrandPiano, Instrument::BrightAcousticPiano] });
 /// ```
 impl Add for Instruments {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
         Instruments {
-            programs: self.into_iter().chain(rhs.into_iter()).collect(),
+            instruments: self.into_iter().chain(rhs).collect(),
         }
     }
 }
 
 /// ##Example
 /// ```rust
-/// # use redact_composer::musical::midi::{Instrument, Instruments};
+/// # use redact_composer_midi::gm::elements::Instrument;
+/// # use redact_composer_midi::gm::Instruments;
 /// #
-/// let pianos = Instruments { programs: vec![Instrument::AcousticGrandPiano] }
+/// let pianos = Instruments { instruments: vec![Instrument::AcousticGrandPiano] }
 ///                         + Instrument::BrightAcousticPiano;
-/// assert_eq!(pianos, Instruments { programs: vec![Instrument::AcousticGrandPiano, Instrument::BrightAcousticPiano] });
+/// assert_eq!(pianos, Instruments { instruments: vec![Instrument::AcousticGrandPiano, Instrument::BrightAcousticPiano] });
 /// ```
 impl Add<Instrument> for Instruments {
     type Output = Self;
 
     fn add(self, rhs: Instrument) -> Self::Output {
         Instruments {
-            programs: self.into_iter().chain(vec![rhs]).collect(),
+            instruments: self.into_iter().chain(vec![rhs]).collect(),
         }
     }
 }
 
 /// ##Example
 /// ```rust
-/// # use redact_composer::musical::midi::{Instrument, Instruments};
+/// # use redact_composer_midi::gm::elements::Instrument;
+/// # use redact_composer_midi::gm::Instruments;
 /// #
-/// let no_violins = Instruments { programs: vec![Instrument::Violin, Instrument::Cello] }
-///                         - Instruments { programs: vec![Instrument::Violin] };
-/// assert_eq!(no_violins, Instruments { programs: vec![Instrument::Cello] });
+/// let no_violins = Instruments { instruments: vec![Instrument::Violin, Instrument::Cello] }
+///                         - Instruments { instruments: vec![Instrument::Violin] };
+/// assert_eq!(no_violins, Instruments { instruments: vec![Instrument::Cello] });
 /// ```
 impl Sub for Instruments {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self::Output {
         Instruments {
-            programs: self
+            instruments: self
                 .into_iter()
-                .filter(|i| !rhs.programs.contains(i))
+                .filter(|i| !rhs.instruments.contains(i))
                 .collect(),
         }
     }
@@ -440,29 +480,31 @@ impl Sub for Instruments {
 
 /// ##Example
 /// ```rust
-/// # use redact_composer::musical::midi::{Instrument, Instruments};
+/// # use redact_composer_midi::gm::elements::Instrument;
+/// # use redact_composer_midi::gm::Instruments;
 /// #
-/// let no_violins = Instruments { programs: vec![Instrument::Violin, Instrument::Cello] }
+/// let no_violins = Instruments { instruments: vec![Instrument::Violin, Instrument::Cello] }
 ///                         - Instrument::Violin;
-/// assert_eq!(no_violins, Instruments { programs: vec![Instrument::Cello] });
+/// assert_eq!(no_violins, Instruments { instruments: vec![Instrument::Cello] });
 ///
-/// let instruments = Instruments { programs: vec![Instrument::AcousticGrandPiano, Instrument::BrightAcousticPiano] };
+/// let instruments = Instruments { instruments: vec![Instrument::AcousticGrandPiano, Instrument::BrightAcousticPiano] };
 /// ```
 impl Sub<Instrument> for Instruments {
     type Output = Self;
 
     fn sub(self, rhs: Instrument) -> Self::Output {
         Instruments {
-            programs: self.into_iter().filter(|i| *i != rhs).collect(),
+            instruments: self.into_iter().filter(|i| *i != rhs).collect(),
         }
     }
 }
 
 /// ##Example
 /// ```rust
-/// # use redact_composer::musical::midi::{Instrument, Instruments};
+/// # use redact_composer_midi::gm::elements::Instrument;
+/// # use redact_composer_midi::gm::Instruments;
 /// #
-/// let instruments = Instruments { programs: vec![Instrument::AcousticGrandPiano, Instrument::BrightAcousticPiano] };
+/// let instruments = Instruments { instruments: vec![Instrument::AcousticGrandPiano, Instrument::BrightAcousticPiano] };
 /// let vec_instruments: Vec<Instrument> = instruments.into();
 /// assert_eq!(
 ///     vec_instruments,
@@ -471,12 +513,41 @@ impl Sub<Instrument> for Instruments {
 /// ```
 impl From<Instruments> for Vec<Instrument> {
     fn from(value: Instruments) -> Self {
-        value.programs
+        value.instruments
     }
 }
 
+/// Represents a drum hit. (Similar to [`PlayNote`]).
+#[derive(Element, Clone, Copy, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct DrumHit {
+    /// The drum hit sound type.
+    pub hit: DrumHitType,
+    /// The strength of attack.
+    pub velocity: u8,
+}
+
+impl DrumHit {
+    /// Renderer that renders a [`DrumHit`] as a [`PlayNote`] over the same timing.
+    pub fn renderer() -> impl Renderer<Element = Self> {
+        AdhocRenderer::<Self>::new(|segment, _| {
+            Result::Ok(vec![Segment::new(
+                PlayNote {
+                    note: segment.element.hit.into(),
+                    velocity: segment.element.velocity,
+                },
+                segment.timing,
+            )])
+        })
+    }
+}
+
+/// Percussion key map defined according to
+/// [GM1 Sound Set](https://www.midi.org/specifications-old/item/gm-level-1-sound-set)
 #[derive(Debug, Hash, FromPrimitive, PartialEq, Clone, Copy)]
-pub enum DrumHit {
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[allow(missing_docs)]
+pub enum DrumHitType {
     AcousticBassDrum = 35,
     BassDrum,
     SideStick,
@@ -526,14 +597,14 @@ pub enum DrumHit {
     OpenTriangle,
 }
 
-impl From<u8> for DrumHit {
+impl From<u8> for DrumHitType {
     fn from(value: u8) -> Self {
         num::FromPrimitive::from_u8(value).unwrap()
     }
 }
 
-impl From<DrumHit> for u8 {
-    fn from(value: DrumHit) -> Self {
+impl From<DrumHitType> for u8 {
+    fn from(value: DrumHitType) -> Self {
         value as u8
     }
 }

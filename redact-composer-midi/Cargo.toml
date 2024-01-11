@@ -1,0 +1,29 @@
+[package]
+name = "redact-composer-midi"
+description = "Midi domain library and converter for redact-composer"
+version = "0.1.0"
+repository = "https://github.com/dousto/redact-composer"
+authors = ["Doug Stoeckmann <dousto@gmail.com>"]
+keywords = ["redact-composer", "midi", "convert", "encode"]
+categories = ["encoding", "multimedia::audio"]
+license = "MIT OR Apache-2.0"
+edition = "2021"
+
+[dependencies]
+redact-composer-core = { workspace = true  }
+midly = { version = "0.5.3", default-features = false, features = ["std"] }
+num = { version = "0.4.1", features = [] }
+num-derive = { version = "0.4.1", features = [] }
+num-traits = { version = "0.2.17", features = [] }
+log = { workspace = true, features = [] }
+
+serde = { optional = true, workspace = true }
+typetag = { optional = true, workspace = true }
+
+[features]
+default = []
+serde = ["dep:serde", "dep:typetag"]
+
+[dev-dependencies]
+serde = { workspace = true }
+typetag = { workspace = true }

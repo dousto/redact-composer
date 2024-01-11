@@ -1,48 +1,63 @@
-use crate::composer::{
-    render::{Node, Tree},
-    Instrument, Part, PartType, PlayNote, RenderSegment, TypedSegment,
-};
-use crate::musical::rhythm::STANDARD_BEAT_LENGTH;
-use crate::musical::timing::Tempo;
+use crate::elements::Program;
+use log::{debug, info, log_enabled, warn, Level};
+use midly::num::u4;
 use midly::{
     Format::Parallel, Header, MetaMessage, MidiMessage, Smf, Timing::Metrical, TrackEvent,
     TrackEventKind,
+};
+use redact_composer_core::timing::Timing;
+use redact_composer_core::{
+    elements::{Part, PlayNote},
+    render::{
+        tree::{Node, Tree},
+        RenderSegment,
+    },
+    timing::elements::Tempo,
+    Composition, PartType, SegmentRef,
 };
 use std::{cmp::Ordering, collections::HashSet};
 
 #[cfg(test)]
 mod test;
 
+/// Converter for [`Composition`] -> MIDI format.
+#[allow(missing_debug_implementations)]
 pub struct MidiConverter;
 
 impl MidiConverter {
-    /// Converts the given render tree ([`Tree<RenderSegment>`]) into MIDI format using the [midly] crate (special thanks to its creators!).
-    pub fn convert(tree: &Tree<RenderSegment>) -> Smf {
-        let track_subtrees: Vec<&Node<RenderSegment>> = tree
+    /// Converts [`Composition`]s into MIDI format using the [`midly`] crate.
+    pub fn convert(composition: &Composition) -> Smf {
+        info!("Converting to MIDI.");
+        let track_subtrees: Vec<&Node<RenderSegment>> = composition
+            .tree
             .iter()
             .filter(|n| n.value.segment.element_as::<Part>().is_some())
             .collect();
 
         let channel_assignments = Self::assign_channels(&track_subtrees);
 
-        if channel_assignments.iter().any(|opt_ch| opt_ch.is_none()) {
-            println!("Warning: Some parts could not be assigned a channel due to too many simultaneous parts.");
+        if channel_assignments.iter().any(Option::is_none) {
+            warn!("Warning: Some parts could not be assigned a channel due to too many concurrent parts.");
+            warn!(
+                "Maximum allowed concurrent Parts: (Instrument: {:?}, Percussion: {:?})",
+                Self::instrument_channels().len(),
+                Self::drum_channels().len()
+            );
         }
 
         let tracks: Vec<Vec<TrackEvent>> = track_subtrees
             .into_iter()
-            .zip(channel_assignments)
-            .filter(|(_, opt_ch)| opt_ch.is_some())
-            .map(|(subtree_root, opt_ch)| {
-                let channel = opt_ch.unwrap();
-
+            .zip(channel_assignments.iter())
+            .filter_map(|(node, opt_ch)| opt_ch.map(|ch| (node, ch)))
+            .map(|(subtree_root, channel)| {
                 let initial_events = if channel == 0 {
-                    Some(Self::extract_tempo_events(tree))
+                    Some(Self::extract_tempo_events(&composition.tree))
                 } else {
                     None
                 };
 
-                let mut track = Self::convert_subtree(subtree_root, tree, channel, initial_events);
+                let mut track =
+                    Self::convert_subtree(subtree_root, &composition.tree, channel, initial_events);
 
                 track.append(&mut vec![TrackEvent {
                     delta: 0.into(),
@@ -52,34 +67,62 @@ impl MidiConverter {
             })
             .collect();
 
+        if log_enabled!(Level::Info) {
+            let used_channels = channel_assignments
+                .into_iter()
+                .flatten()
+                .collect::<Vec<_>>();
+            let drum_channels = Self::drum_channels().into_iter().collect::<Vec<_>>();
+            let instrument_channels = Self::instrument_channels().into_iter().collect::<Vec<_>>();
+            let used_drum_channels = (0..u4::max_value().into())
+                .filter(|ch| drum_channels.contains(ch) && used_channels.contains(ch))
+                .collect::<Vec<_>>();
+            let used_instrument_channels = (0..u4::max_value().into())
+                .filter(|ch| instrument_channels.contains(ch) && used_channels.contains(ch))
+                .collect::<Vec<_>>();
+
+            info!("MIDI conversion complete. Total events: {:?}. Channels used: Instrument: {:?}, Percussion: {:?}.",
+                tracks.iter().map(Vec::len).sum::<usize>(), used_instrument_channels, used_drum_channels);
+        }
+
         Smf {
             header: Header {
                 format: Parallel,
-                timing: Metrical((STANDARD_BEAT_LENGTH as u16).into()),
+                timing: Metrical((composition.options.ticks_per_beat as u16).into()),
             },
             tracks,
         }
     }
 
+    fn drum_channels() -> HashSet<u8> {
+        HashSet::from_iter([9])
+    }
+
+    fn instrument_channels() -> HashSet<u8> {
+        let drum_channels = Self::drum_channels();
+        (0..=u4::max_value().into())
+            .filter(|ch| !drum_channels.contains(ch))
+            .collect()
+    }
+
     fn assign_channels(parts: &[&Node<RenderSegment>]) -> Vec<Option<u8>> {
-        let mut drum_channels: HashSet<u8> = HashSet::from_iter([9].into_iter());
-        let mut inst_channels: HashSet<u8> =
-            HashSet::from_iter((0..=16).filter(|ch| !drum_channels.contains(ch)));
+        let mut drum_channels: HashSet<u8> = Self::drum_channels();
+        let mut inst_channels: HashSet<u8> = Self::instrument_channels();
 
         let mut part_times: Vec<(&Node<RenderSegment>, Option<u8>)> =
             parts.iter().map(|p| (*p, None)).collect();
 
         let mut sorted_part_times: Vec<&mut (&Node<RenderSegment>, Option<u8>)> =
             part_times.iter_mut().collect();
-        sorted_part_times.sort_by_key(|(p, _)| p.value.segment.time_range.start);
+        sorted_part_times.sort_by_key(|(p, _)| p.value.segment.timing.start);
 
         let mut temp_channels: Vec<(&Node<RenderSegment>, u8)> = vec![];
         for (next_part, opt_ch) in sorted_part_times {
             // release temp channels for reuse if they're past the next part's start time
             let mut i: usize = 0;
             while i < temp_channels.len() {
-                if temp_channels[i].0.value.segment.time_range.end
-                    <= next_part.value.segment.time_range.start
+                if temp_channels[i].0.value.segment.timing.end
+                    <= next_part.value.segment.timing.start
                 {
                     match temp_channels[i]
                         .0
@@ -87,7 +130,7 @@ impl MidiConverter {
                         .segment
                         .element_as::<Part>()
                         .unwrap()
-                        .1
+                        .part_type()
                     {
                         PartType::Instrument => inst_channels.insert(temp_channels[i].1),
                         PartType::Percussion => drum_channels.insert(temp_channels[i].1),
@@ -101,7 +144,13 @@ impl MidiConverter {
             }
 
             // Assign a channel from available channels
-            let channel_pool = match next_part.value.segment.element_as::<Part>().unwrap().1 {
+            let channel_pool = match next_part
+                .value
+                .segment
+                .element_as::<Part>()
+                .unwrap()
+                .part_type()
+            {
                 PartType::Instrument => &mut inst_channels,
                 PartType::Percussion => &mut drum_channels,
             };
@@ -112,15 +161,21 @@ impl MidiConverter {
                 *opt_ch = Some(ch);
                 channel_pool.remove(&ch);
                 temp_channels.insert(temp_channels.len(), (next_part, ch));
+            } else {
+                debug!(
+                    "Could not assign channel for {:?} (idx: {:?}). \
+                All available channels are occupied during this time.",
+                    next_part.value.segment, next_part.idx
+                );
             };
         }
 
         part_times.into_iter().map(|(_, ch)| ch).collect()
     }
 
-    fn extract_tempo_events<'a>(tree: &'a Tree<RenderSegment>) -> Vec<(i32, TrackEvent<'a>)> {
-        let time_range = if let Some(root) = tree.root() {
-            root.value.segment.time_range.clone()
+    fn extract_tempo_events(tree: &Tree<RenderSegment>) -> Vec<(i32, TrackEvent<'_>)> {
+        let timing = if let Some(root) = tree.root() {
+            root.value.segment.timing
         } else {
             return vec![];
         };
@@ -128,36 +183,33 @@ impl MidiConverter {
         let default_tempo = Tempo::from_bpm(120);
         let spanning_tempos = tree
             .iter()
-            .flat_map(|n| (&n.value.segment).try_into().ok())
+            .filter_map(|n| (&n.value.segment).try_into().ok())
             .fold(
-                vec![TypedSegment {
-                    value: &default_tempo,
-                    time_range,
-                }],
-                |mut tempos, tempo: TypedSegment<Tempo>| {
+                vec![(&default_tempo, timing)],
+                |mut tempos, tempo: SegmentRef<Tempo>| {
                     // Find the position of the first existing tempo starting after/at the new tempo
                     let start_overlap =
-                        tempos.partition_point(|x| &x.time_range.start < &tempo.time_range.start);
+                        tempos.partition_point(|(_, timing)| timing.start < tempo.timing.start);
                     // Find the position of the first existing tempo ending before the new tempo
                     let end_overlap =
-                        tempos.partition_point(|x| &tempo.time_range.end >= &x.time_range.end);
+                        tempos.partition_point(|(_, timing)| tempo.timing.end >= timing.end);
 
                     if start_overlap > end_overlap {
                         // This is the case if the new tempo is within an existing tempo segment
                         // In this case the new tempo needs to be spliced within an existing tempo segment
                         let splice_tempo = tempos.remove(end_overlap);
 
-                        let first_split = TypedSegment {
-                            value: splice_tempo.value,
-                            time_range: splice_tempo.time_range.start..tempo.time_range.start,
-                        };
-                        let last_split = TypedSegment {
-                            value: splice_tempo.value,
-                            time_range: tempo.time_range.end..splice_tempo.time_range.end,
-                        };
+                        let first_split = (
+                            splice_tempo.0,
+                            Timing::from(splice_tempo.1.start..tempo.timing.start),
+                        );
+                        let last_split = (
+                            splice_tempo.0,
+                            Timing::from(tempo.timing.end..splice_tempo.1.end),
+                        );
 
                         tempos.insert(end_overlap, first_split);
-                        tempos.insert(end_overlap + 1, tempo);
+                        tempos.insert(end_overlap + 1, (tempo.element, *tempo.timing));
                         tempos.insert(end_overlap + 2, last_split);
                     } else {
                         // Cut out the existing tempos during the overlapping range
@@ -170,16 +222,16 @@ impl MidiConverter {
                         } else {
                             tempos.get_mut(start_overlap - 1)
                         } {
-                            ele.time_range.end = ele.time_range.end.min(tempo.time_range.start)
+                            ele.1.end = ele.1.end.min(tempo.timing.start);
                         }
 
                         // Update the existing tempo segment (after the cut region) and update its
                         // timing to start at the inserted tempo's end time
                         if let Some(ele) = tempos.get_mut(start_overlap) {
-                            ele.time_range.start = ele.time_range.start.max(tempo.time_range.end)
+                            ele.1.start = ele.1.start.max(tempo.timing.end);
                         }
 
-                        tempos.insert(start_overlap, tempo);
+                        tempos.insert(start_overlap, (tempo.element, *tempo.timing));
                     }
 
                     tempos
@@ -189,12 +241,14 @@ impl MidiConverter {
         // Convert each tempo segment into a midi event
         spanning_tempos
             .into_iter()
-            .map(|t| {
+            .map(|(tempo, timing)| {
                 (
-                    t.time_range.start,
+                    timing.start,
                     TrackEvent {
                         delta: 0.into(),
-                        kind: TrackEventKind::Meta(MetaMessage::Tempo(t.value.µspb().into())),
+                        kind: TrackEventKind::Meta(MetaMessage::Tempo(
+                            tempo.microseconds_per_beat().into(),
+                        )),
                     },
                 )
             })
@@ -209,51 +263,51 @@ impl MidiConverter {
     ) -> Vec<TrackEvent<'a>> {
         let mut abs_time_events: Vec<(i32, TrackEvent)> = tree
             .node_iter(subtree_root)
-            .flat_map(|n| {
-                if let Some(instrument) = n.value.segment.element_as::<Instrument>() {
+            .filter_map(|n| {
+                if let Some(instrument) = n.value.segment.element_as::<Program>() {
                     Some(vec![(
-                        n.value.segment.time_range.start,
+                        n.value.segment.timing.start,
                         TrackEvent {
                             delta: 0.into(),
                             kind: TrackEventKind::Midi {
                                 channel: channel.into(),
                                 message: MidiMessage::ProgramChange {
-                                    program: instrument.program.into(),
+                                    program: instrument.0.into(),
                                 },
                             },
                         },
                     )])
-                } else if let Some(play_note) = n.value.segment.element_as::<PlayNote>() {
-                    Some(vec![
-                        (
-                            n.value.segment.time_range.start,
-                            TrackEvent {
-                                delta: 0.into(),
-                                kind: TrackEventKind::Midi {
-                                    channel: channel.into(),
-                                    message: MidiMessage::NoteOn {
-                                        key: play_note.note.into(),
-                                        vel: play_note.velocity.into(),
-                                    },
-                                },
-                            },
-                        ),
-                        (
-                            n.value.segment.time_range.end,
-                            TrackEvent {
-                                delta: 0.into(),
-                                kind: TrackEventKind::Midi {
-                                    channel: channel.into(),
-                                    message: MidiMessage::NoteOff {
-                                        key: play_note.note.into(),
-                                        vel: play_note.velocity.into(),
-                                    },
-                                },
-                            },
-                        ),
-                    ])
                 } else {
-                    None
+                    n.value.segment.element_as::<PlayNote>().map(|play_note| {
+                        vec![
+                            (
+                                n.value.segment.timing.start,
+                                TrackEvent {
+                                    delta: 0.into(),
+                                    kind: TrackEventKind::Midi {
+                                        channel: channel.into(),
+                                        message: MidiMessage::NoteOn {
+                                            key: play_note.note.into(),
+                                            vel: play_note.velocity.into(),
+                                        },
+                                    },
+                                },
+                            ),
+                            (
+                                n.value.segment.timing.end,
+                                TrackEvent {
+                                    delta: 0.into(),
+                                    kind: TrackEventKind::Midi {
+                                        channel: channel.into(),
+                                        message: MidiMessage::NoteOff {
+                                            key: play_note.note.into(),
+                                            vel: play_note.velocity.into(),
+                                        },
+                                    },
+                                },
+                            ),
+                        ]
+                    })
                 }
             })
             .flatten()

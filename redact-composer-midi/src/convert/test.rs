@@ -1,9 +1,14 @@
-use crate::composer::render::Tree;
-use crate::composer::{Composition, CompositionSegment, RenderSegment};
-use crate::converters::MidiConverter;
-use crate::musical::timing::Tempo;
+use super::MidiConverter;
 use midly::TrackEventKind::Meta;
 use midly::{MetaMessage, TrackEvent};
+use redact_composer_core::derive::Element;
+use redact_composer_core::render::tree::Tree;
+use redact_composer_core::timing::elements::Tempo;
+use redact_composer_core::{render::RenderSegment, Segment};
+use serde::{Deserialize, Serialize};
+
+#[derive(Element, Serialize, Deserialize, Debug)]
+struct Composition;
 
 #[test]
 fn tempo_splice_beginning() {
@@ -12,7 +17,7 @@ fn tempo_splice_beginning() {
         RenderSegment {
             rendered: false,
             seed: 0,
-            segment: CompositionSegment::new(Composition, 0..30),
+            segment: Segment::new(Composition, 0..30),
             error: None,
         },
         None,
@@ -20,7 +25,7 @@ fn tempo_splice_beginning() {
 
     render_tree.insert(
         RenderSegment {
-            segment: CompositionSegment::new(Tempo::from_bpm(100), 0..10),
+            segment: Segment::new(Tempo::from_bpm(100), 0..10),
             seed: 0,
             rendered: true,
             error: None,
@@ -58,7 +63,7 @@ fn tempo_splice_end() {
         RenderSegment {
             rendered: false,
             seed: 0,
-            segment: CompositionSegment::new(Composition, 0..30),
+            segment: Segment::new(Composition, 0..30),
             error: None,
         },
         None,
@@ -66,7 +71,7 @@ fn tempo_splice_end() {
 
     render_tree.insert(
         RenderSegment {
-            segment: CompositionSegment::new(Tempo::from_bpm(100), 20..30),
+            segment: Segment::new(Tempo::from_bpm(100), 20..30),
             seed: 0,
             rendered: true,
             error: None,
@@ -104,7 +109,7 @@ fn tempo_splice_middle() {
         RenderSegment {
             rendered: false,
             seed: 0,
-            segment: CompositionSegment::new(Composition, 0..30),
+            segment: Segment::new(Composition, 0..30),
             error: None,
         },
         None,
@@ -112,7 +117,7 @@ fn tempo_splice_middle() {
 
     render_tree.insert(
         RenderSegment {
-            segment: CompositionSegment::new(Tempo::from_bpm(100), 10..20),
+            segment: Segment::new(Tempo::from_bpm(100), 10..20),
             seed: 0,
             rendered: true,
             error: None,
@@ -157,7 +162,7 @@ fn tempo_splice_into_multiple() {
         RenderSegment {
             rendered: false,
             seed: 0,
-            segment: CompositionSegment::new(Composition, 0..30),
+            segment: Segment::new(Composition, 0..30),
             error: None,
         },
         None,
@@ -165,7 +170,7 @@ fn tempo_splice_into_multiple() {
 
     render_tree.insert(
         RenderSegment {
-            segment: CompositionSegment::new(Tempo::from_bpm(100), 0..15),
+            segment: Segment::new(Tempo::from_bpm(100), 0..15),
             seed: 0,
             rendered: true,
             error: None,
@@ -175,7 +180,7 @@ fn tempo_splice_into_multiple() {
 
     render_tree.insert(
         RenderSegment {
-            segment: CompositionSegment::new(Tempo::from_bpm(100), 15..30),
+            segment: Segment::new(Tempo::from_bpm(100), 15..30),
             seed: 0,
             rendered: true,
             error: None,
@@ -213,7 +218,7 @@ fn tempo_splice_spanning() {
         RenderSegment {
             rendered: false,
             seed: 0,
-            segment: CompositionSegment::new(Composition, 0..30),
+            segment: Segment::new(Composition, 0..30),
             error: None,
         },
         None,
@@ -221,7 +226,7 @@ fn tempo_splice_spanning() {
 
     render_tree.insert(
         RenderSegment {
-            segment: CompositionSegment::new(Tempo::from_bpm(100), 0..15),
+            segment: Segment::new(Tempo::from_bpm(100), 0..15),
             seed: 0,
             rendered: true,
             error: None,
@@ -231,7 +236,7 @@ fn tempo_splice_spanning() {
 
     render_tree.insert(
         RenderSegment {
-            segment: CompositionSegment::new(Tempo::from_bpm(100), 15..30),
+            segment: Segment::new(Tempo::from_bpm(100), 15..30),
             seed: 0,
             rendered: true,
             error: None,
@@ -241,7 +246,7 @@ fn tempo_splice_spanning() {
 
     render_tree.insert(
         RenderSegment {
-            segment: CompositionSegment::new(Tempo::from_bpm(80), 10..20),
+            segment: Segment::new(Tempo::from_bpm(80), 10..20),
             seed: 0,
             rendered: true,
             error: None,
@@ -286,7 +291,7 @@ fn tempo_splice_spanning2() {
         RenderSegment {
             rendered: false,
             seed: 0,
-            segment: CompositionSegment::new(Composition, 0..30),
+            segment: Segment::new(Composition, 0..30),
             error: None,
         },
         None,
@@ -294,7 +299,7 @@ fn tempo_splice_spanning2() {
 
     render_tree.insert(
         RenderSegment {
-            segment: CompositionSegment::new(Tempo::from_bpm(100), 0..10),
+            segment: Segment::new(Tempo::from_bpm(100), 0..10),
             seed: 0,
             rendered: true,
             error: None,
@@ -304,7 +309,7 @@ fn tempo_splice_spanning2() {
 
     render_tree.insert(
         RenderSegment {
-            segment: CompositionSegment::new(Tempo::from_bpm(100), 10..20),
+            segment: Segment::new(Tempo::from_bpm(100), 10..20),
             seed: 0,
             rendered: true,
             error: None,
@@ -314,7 +319,7 @@ fn tempo_splice_spanning2() {
 
     render_tree.insert(
         RenderSegment {
-            segment: CompositionSegment::new(Tempo::from_bpm(100), 20..30),
+            segment: Segment::new(Tempo::from_bpm(100), 20..30),
             seed: 0,
             rendered: true,
             error: None,
@@ -324,7 +329,7 @@ fn tempo_splice_spanning2() {
 
     render_tree.insert(
         RenderSegment {
-            segment: CompositionSegment::new(Tempo::from_bpm(80), 5..25),
+            segment: Segment::new(Tempo::from_bpm(80), 5..25),
             seed: 0,
             rendered: true,
             error: None,
@@ -369,7 +374,7 @@ fn tempo_splice_spanning3() {
         RenderSegment {
             rendered: false,
             seed: 0,
-            segment: CompositionSegment::new(Composition, 0..30),
+            segment: Segment::new(Composition, 0..30),
             error: None,
         },
         None,
@@ -377,7 +382,7 @@ fn tempo_splice_spanning3() {
 
     render_tree.insert(
         RenderSegment {
-            segment: CompositionSegment::new(Tempo::from_bpm(100), 0..10),
+            segment: Segment::new(Tempo::from_bpm(100), 0..10),
             seed: 0,
             rendered: true,
             error: None,
@@ -387,7 +392,7 @@ fn tempo_splice_spanning3() {
 
     render_tree.insert(
         RenderSegment {
-            segment: CompositionSegment::new(Tempo::from_bpm(100), 10..20),
+            segment: Segment::new(Tempo::from_bpm(100), 10..20),
             seed: 0,
             rendered: true,
             error: None,
@@ -397,7 +402,7 @@ fn tempo_splice_spanning3() {
 
     render_tree.insert(
         RenderSegment {
-            segment: CompositionSegment::new(Tempo::from_bpm(100), 20..30),
+            segment: Segment::new(Tempo::from_bpm(100), 20..30),
             seed: 0,
             rendered: true,
             error: None,
@@ -407,7 +412,7 @@ fn tempo_splice_spanning3() {
 
     render_tree.insert(
         RenderSegment {
-            segment: CompositionSegment::new(Tempo::from_bpm(80), 0..25),
+            segment: Segment::new(Tempo::from_bpm(80), 0..25),
             seed: 0,
             rendered: true,
             error: None,
@@ -445,7 +450,7 @@ fn tempo_splice_spanning4() {
         RenderSegment {
             rendered: false,
             seed: 0,
-            segment: CompositionSegment::new(Composition, 0..30),
+            segment: Segment::new(Composition, 0..30),
             error: None,
         },
         None,
@@ -453,7 +458,7 @@ fn tempo_splice_spanning4() {
 
     render_tree.insert(
         RenderSegment {
-            segment: CompositionSegment::new(Tempo::from_bpm(100), 0..10),
+            segment: Segment::new(Tempo::from_bpm(100), 0..10),
             seed: 0,
             rendered: true,
             error: None,
@@ -463,7 +468,7 @@ fn tempo_splice_spanning4() {
 
     render_tree.insert(
         RenderSegment {
-            segment: CompositionSegment::new(Tempo::from_bpm(100), 10..20),
+            segment: Segment::new(Tempo::from_bpm(100), 10..20),
             seed: 0,
             rendered: true,
             error: None,
@@ -473,7 +478,7 @@ fn tempo_splice_spanning4() {
 
     render_tree.insert(
         RenderSegment {
-            segment: CompositionSegment::new(Tempo::from_bpm(100), 20..30),
+            segment: Segment::new(Tempo::from_bpm(100), 20..30),
             seed: 0,
             rendered: true,
             error: None,
@@ -483,7 +488,7 @@ fn tempo_splice_spanning4() {
 
     render_tree.insert(
         RenderSegment {
-            segment: CompositionSegment::new(Tempo::from_bpm(80), 5..30),
+            segment: Segment::new(Tempo::from_bpm(80), 5..30),
             seed: 0,
             rendered: true,
             error: None,
@@ -521,7 +526,7 @@ fn tempo_splice_multi_spanning() {
         RenderSegment {
             rendered: false,
             seed: 0,
-            segment: CompositionSegment::new(Composition, 0..40),
+            segment: Segment::new(Composition, 0..40),
             error: None,
         },
         None,
@@ -529,7 +534,7 @@ fn tempo_splice_multi_spanning() {
 
     render_tree.insert(
         RenderSegment {
-            segment: CompositionSegment::new(Tempo::from_bpm(100), 0..10),
+            segment: Segment::new(Tempo::from_bpm(100), 0..10),
             seed: 0,
             rendered: true,
             error: None,
@@ -539,7 +544,7 @@ fn tempo_splice_multi_spanning() {
 
     render_tree.insert(
         RenderSegment {
-            segment: CompositionSegment::new(Tempo::from_bpm(100), 10..20),
+            segment: Segment::new(Tempo::from_bpm(100), 10..20),
             seed: 0,
             rendered: true,
             error: None,
@@ -549,7 +554,7 @@ fn tempo_splice_multi_spanning() {
 
     render_tree.insert(
         RenderSegment {
-            segment: CompositionSegment::new(Tempo::from_bpm(100), 20..30),
+            segment: Segment::new(Tempo::from_bpm(100), 20..30),
             seed: 0,
             rendered: true,
             error: None,
@@ -559,7 +564,7 @@ fn tempo_splice_multi_spanning() {
 
     render_tree.insert(
         RenderSegment {
-            segment: CompositionSegment::new(Tempo::from_bpm(100), 30..40),
+            segment: Segment::new(Tempo::from_bpm(100), 30..40),
             seed: 0,
             rendered: true,
             error: None,
@@ -569,7 +574,7 @@ fn tempo_splice_multi_spanning() {
 
     render_tree.insert(
         RenderSegment {
-            segment: CompositionSegment::new(Tempo::from_bpm(80), 10..30),
+            segment: Segment::new(Tempo::from_bpm(80), 10..30),
             seed: 0,
             rendered: true,
             error: None,

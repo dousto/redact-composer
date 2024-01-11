@@ -1,19 +1,27 @@
+#![deny(missing_docs, missing_debug_implementations)]
+//! Musical domain library.
+
+/// Utilities for building or generating rhythms.
+pub mod rhythm;
+
+/// Musical timing elements. Namely [`TimeSignature`](timing::TimeSignature).
+pub mod timing;
+
 use std::fmt;
 
-use crate::composer::render::RenderEngine;
+#[cfg(feature = "redact-composer")]
+use redact_composer_core::derive::Element;
+
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
-
-use crate::composer::CompositionElement;
-
-pub mod midi;
-pub mod rhythm;
-pub mod timing;
 
 #[cfg(test)]
 mod test;
 
-pub fn renderers() -> RenderEngine {
-    midi::renderers() + timing::renderers()
+/// Types implementing [`Element`].
+#[cfg(feature = "redact-composer")]
+pub mod elements {
+    pub use super::{timing::*, Chord, Key, Mode, Scale};
 }
 
 /// Utility struct used for operating with a set of base notes ([u8] values `0..=11`).
@@ -31,7 +39,8 @@ impl Notes {
     /// # Example
     ///
     /// ```rust
-    /// # use redact_composer::musical::{Key, Scale, Notes, Mode};
+    /// # use redact_composer_musical::elements::{Key, Scale, Mode};
+    /// # use redact_composer_musical::Notes;
     /// let c_major = Key { tonic: 0, scale: Scale::Major, mode: Mode::Ionian};
     /// let c_major_scale_notes = Notes::from(c_major.scale()).in_range(60..=72);
     /// assert_eq!(c_major_scale_notes, [60, 62, 64, 65, 67, 69, 71, 72]);
@@ -46,6 +55,7 @@ impl Notes {
             .collect()
     }
 
+    /// Returns the 0..12 pitch class of a note.
     pub fn base_note(note: &u8) -> u8 {
         note % 12
     }
@@ -60,12 +70,12 @@ where
     ///
     /// # Example
     /// ```rust
-    /// # use redact_composer::musical::{Notes};
+    /// # use redact_composer_musical::Notes;
     /// let notes = Notes::from([1,2,3]);
     /// ```
     fn from(value: T) -> Self {
         let mut clamped_base_notes: Vec<u8> = value.into_iter().map(|n| n.into() % 12).collect();
-        clamped_base_notes.sort();
+        clamped_base_notes.sort_unstable();
         clamped_base_notes.dedup();
 
         Notes {
@@ -74,9 +84,11 @@ where
     }
 }
 
-/// Represents a key signature via a tonic ([u8] value in `0..=11`), [Scale] (e.g. Major/Minor),
-/// and [`Mode`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+/// Musical key signature represented as a tonic ([`u8`] value in `0..=11`), [`Scale`]
+/// (e.g. Major/Minor), and [`Mode`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "redact-composer", derive(Element))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Key {
     /// First note of the scale. (`tonic == 0` represents C)
     pub tonic: u8,
@@ -85,9 +97,6 @@ pub struct Key {
     /// Offset amount for the scale.
     pub mode: Mode,
 }
-
-#[typetag::serde]
-impl CompositionElement for Key {}
 
 impl Key {
     /// Returns the scale notes for this [Key], starting from the `tonic` and using relative intervals
@@ -104,7 +113,7 @@ impl Key {
     ///
     /// # Example
     /// ```rust
-    /// # use redact_composer::musical::{Key, Scale, Chord};
+    /// # use redact_composer_musical::elements::{Key, Scale, Chord};
     /// let c_major = Key { tonic: 0, scale: Scale::Major, mode: Default::default() };
     /// let c_major_chord_notes = c_major.chord(&Chord::I);
     /// assert_eq!(c_major_chord_notes, [0, 4, 7]); // C, E, G
@@ -117,59 +126,65 @@ impl Key {
             .map(|d| scale[usize::from(*d)])
             .collect()
     }
+
+    /// Returns the note value for a scale degree.
+    pub fn note(&self, degree: u8) -> u8 {
+        let scale = self.scale();
+
+        scale[usize::from(degree) % scale.len()]
+    }
 }
 
-/// A type representing the diatonic harmony chord variations based on [heptatonic (7-note) scales](https://en.wikipedia.org/wiki/Heptatonic_scale).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+/// Musical chords defined relative to scale degrees.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "redact-composer", derive(Element))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum Chord {
     /// ```rust
-    /// # use redact_composer::musical::{Chord};
+    /// # use redact_composer_musical::elements::Chord;
     /// assert_eq!(Chord::I.degrees(), vec![0, 2, 4])
     /// ```
     I,
     /// ```rust
-    /// # use redact_composer::musical::{Chord};
+    /// # use redact_composer_musical::elements::Chord;
     /// assert_eq!(Chord::II.degrees(), vec![1, 3, 5])
     /// ```
     II,
     /// ```rust
-    /// # use redact_composer::musical::{Chord};
+    /// # use redact_composer_musical::elements::Chord;
     /// assert_eq!(Chord::III.degrees(), vec![2, 4, 6])
     /// ```
     III,
     /// ```rust
-    /// # use redact_composer::musical::{Chord};
+    /// # use redact_composer_musical::elements::Chord;
     /// assert_eq!(Chord::IV.degrees(), vec![3, 5, 0])
     /// ```
     IV,
     /// ```rust
-    /// # use redact_composer::musical::{Chord};
+    /// # use redact_composer_musical::elements::Chord;
     /// assert_eq!(Chord::V.degrees(), vec![4, 6, 1])
     /// ```
     V,
     /// ```rust
-    /// # use redact_composer::musical::{Chord};
+    /// # use redact_composer_musical::elements::Chord;
     /// assert_eq!(Chord::VI.degrees(), vec![5, 0, 2])
     /// ```
     VI,
     /// ```rust
-    /// # use redact_composer::musical::{Chord};
+    /// # use redact_composer_musical::elements::Chord;
     /// assert_eq!(Chord::VII.degrees(), vec![6, 1, 3])
     /// ```
     VII,
 }
 
-#[typetag::serde]
-impl CompositionElement for Chord {}
-
 impl Chord {
-    const I_STR: &str = "I";
-    const II_STR: &str = "II";
-    const III_STR: &str = "III";
-    const IV_STR: &str = "IV";
-    const V_STR: &str = "V";
-    const VI_STR: &str = "VI";
-    const VII_STR: &str = "VII";
+    const I_STR: &'static str = "I";
+    const II_STR: &'static str = "II";
+    const III_STR: &'static str = "III";
+    const IV_STR: &'static str = "IV";
+    const V_STR: &'static str = "V";
+    const VI_STR: &'static str = "VI";
+    const VII_STR: &'static str = "VII";
 
     /// Returns a [Vec]<[Chord]> of all types.
     pub fn values() -> Vec<Chord> {
@@ -186,14 +201,45 @@ impl Chord {
 
     /// Returns the diatonic degrees (scale notes) represented by this [Chord].
     pub fn degrees(&self) -> Vec<u8> {
+        vec![self.root(), self.third(), self.fifth()]
+    }
+
+    /// Returns the scale degree of chord's root note.
+    pub fn root(&self) -> u8 {
         match self {
-            Chord::I => vec![0, 2, 4],
-            Chord::II => vec![1, 3, 5],
-            Chord::III => vec![2, 4, 6],
-            Chord::IV => vec![3, 5, 0],
-            Chord::V => vec![4, 6, 1],
-            Chord::VI => vec![5, 0, 2],
-            Chord::VII => vec![6, 1, 3],
+            Chord::I => 0,
+            Chord::II => 1,
+            Chord::III => 2,
+            Chord::IV => 3,
+            Chord::V => 4,
+            Chord::VI => 5,
+            Chord::VII => 6,
+        }
+    }
+
+    /// Returns the scale degree of chord's third interval.
+    pub fn third(&self) -> u8 {
+        match self {
+            Chord::I => 2,
+            Chord::II => 3,
+            Chord::III => 4,
+            Chord::IV => 5,
+            Chord::V => 6,
+            Chord::VI => 0,
+            Chord::VII => 1,
+        }
+    }
+
+    /// Returns the scale degree of chord's fifth interval.
+    pub fn fifth(&self) -> u8 {
+        match self {
+            Chord::I => 4,
+            Chord::II => 5,
+            Chord::III => 6,
+            Chord::IV => 0,
+            Chord::V => 1,
+            Chord::VI => 2,
+            Chord::VII => 3,
         }
     }
 }
@@ -252,39 +298,38 @@ impl From<&String> for Chord {
     }
 }
 
-/// A type representing the sequence of intervals defining the notes in a [Key].
-#[derive(Debug, Hash, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+/// Sequence of intervals spanning 12 semitones or one octave.
+#[derive(Debug, Hash, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "redact-composer", derive(Element))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum Scale {
     /// ```rust
-    /// # use redact_composer::musical::{Mode, Scale};
-    /// assert_eq!(Scale::Major.relative_pitches(&Mode::Ionian), vec![0, 2, 4, 5, 7, 9, 11])
+    /// # use redact_composer_musical::elements::Scale;
+    /// assert_eq!(Scale::Major.relative_pitches(&Default::default()), vec![0, 2, 4, 5, 7, 9, 11])
     /// ```
     Major,
     /// ```rust
-    /// # use redact_composer::musical::{Mode, Scale};
-    /// assert_eq!(Scale::Minor.relative_pitches(&Mode::Ionian), vec![0, 2, 3, 5, 7, 9, 10])
+    /// # use redact_composer_musical::elements::Scale;
+    /// assert_eq!(Scale::Minor.relative_pitches(&Default::default()), vec![0, 2, 3, 5, 7, 9, 10])
     /// ```
     Minor,
     /// ```rust
-    /// # use redact_composer::musical::{Mode, Scale};
-    /// assert_eq!(Scale::NaturalMinor.relative_pitches(&Mode::Ionian), vec![0, 2, 3, 5, 7, 8, 10])
+    /// # use redact_composer_musical::elements::Scale;
+    /// assert_eq!(Scale::NaturalMinor.relative_pitches(&Default::default()), vec![0, 2, 3, 5, 7, 8, 10])
     /// ```
     NaturalMinor,
     /// ```rust
-    /// # use redact_composer::musical::{Mode, Scale};
-    /// assert_eq!(Scale::HarmonicMinor.relative_pitches(&Mode::Ionian), vec![0, 2, 3, 5, 7, 8, 11])
+    /// # use redact_composer_musical::elements::Scale;
+    /// assert_eq!(Scale::HarmonicMinor.relative_pitches(&Default::default()), vec![0, 2, 3, 5, 7, 8, 11])
     /// ```
     HarmonicMinor,
 }
 
-#[typetag::serde]
-impl CompositionElement for Scale {}
-
 impl Scale {
-    const MAJOR_STR: &str = "Major";
-    const MINOR_STR: &str = "Minor";
-    const NATURAL_MINOR_STR: &str = "NaturalMinor";
-    const HARMONIC_MINOR_STR: &str = "HarmonicMinor";
+    const MAJOR_STR: &'static str = "Major";
+    const MINOR_STR: &'static str = "Minor";
+    const NATURAL_MINOR_STR: &'static str = "NaturalMinor";
+    const HARMONIC_MINOR_STR: &'static str = "HarmonicMinor";
 
     /// Returns a [Vec]<[Scale]> of all types.
     pub fn values() -> Vec<Scale> {
@@ -296,7 +341,7 @@ impl Scale {
         ]
     }
 
-    // Returns the pitches of this [Scale] (via interval offsest from tonic).
+    /// Returns the pitches of this [Scale] (note offset relative to tonic).
     pub fn relative_pitches(&self, mode: &Mode) -> Vec<u8> {
         match self {
             Scale::Major => vec![0, 2, 4, 5, 7, 9, 11],
@@ -361,7 +406,9 @@ impl From<&String> for Scale {
 }
 
 /// Offset applied to a [`Scale`].
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "redact-composer", derive(Element))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum Mode {
     /// No offset
     #[default]
@@ -379,9 +426,6 @@ pub enum Mode {
     /// Offset of 6, starting a scale on the seventh pitch.
     Locrian,
 }
-
-#[typetag::serde]
-impl CompositionElement for Mode {}
 
 impl Mode {
     /// Returns a [Vec]<[Mode]> of all types.

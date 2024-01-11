@@ -1,4 +1,4 @@
-use crate::musical::{Chord, Key, Mode, Scale};
+use crate::elements::{Chord, Key, Mode, Scale};
 
 use super::Notes;
 

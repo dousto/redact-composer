@@ -1,0 +1,28 @@
+[package]
+name = "redact-composer-core"
+description = "Core components of redact-composer."
+version = "0.1.0"
+repository = "https://github.com/dousto/redact-composer"
+authors = ["Doug Stoeckmann <dousto@gmail.com>"]
+license = "MIT OR Apache-2.0"
+edition = "2021"
+
+[dependencies]
+redact-composer-derive = { workspace = true }
+rand = { workspace = true }
+rand_chacha = "0.3.1"
+twox-hash = { version = "1.6.3", default-features = false, features = [] }
+thiserror = "1.0.52"
+log = { version = "0.4.20", features = [] }
+
+serde = { optional = true, workspace = true }
+typetag = { optional = true, workspace = true }
+
+[features]
+default = []
+
+# Enables serialization and deserialization via serde and typetag
+serde = ["dep:serde", "dep:typetag", "redact-composer-derive/serde"]
+
+[dev-dependencies]
+serde_json = { workspace = true }
