@@ -74,8 +74,9 @@ jobs:
       - run: cargo llvm-cov --html
 
       - uses: actions/upload-artifact@v4
-        name: test-coverage.html
-        path: ./target/llvm-cov/html/index.html
+        with:
+          name: test-coverage.html
+          path: ./target/llvm-cov/html/index.html
 
   build_example:
     name: Build example
