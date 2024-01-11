@@ -5,46 +5,56 @@ fn over_should_repeat_for_longer_range() {
     assert_eq!(
         Rhythm(vec![
             Subdivision {
-                timing: 0..1,
+                start: 0,
+                end: 1,
                 is_rest: false
             },
             Subdivision {
-                timing: 1..3,
+                start: 1,
+                end: 3,
                 is_rest: false
             },
             Subdivision {
-                timing: 3..4,
+                start: 3,
+                end: 4,
                 is_rest: false
             },
         ])
-        .over(&(0..9)),
+        .over(0..9),
         vec![
             Subdivision {
-                timing: 0..1,
+                start: 0,
+                end: 1,
                 is_rest: false
             },
             Subdivision {
-                timing: 1..3,
+                start: 1,
+                end: 3,
                 is_rest: false
             },
             Subdivision {
-                timing: 3..4,
+                start: 3,
+                end: 4,
                 is_rest: false
             },
             Subdivision {
-                timing: 4..5,
+                start: 4,
+                end: 5,
                 is_rest: false
             },
             Subdivision {
-                timing: 5..7,
+                start: 5,
+                end: 7,
                 is_rest: false
             },
             Subdivision {
-                timing: 7..8,
+                start: 7,
+                end: 8,
                 is_rest: false
             },
             Subdivision {
-                timing: 8..9,
+                start: 8,
+                end: 9,
                 is_rest: false
             },
         ]
@@ -56,26 +66,31 @@ fn should_trim_over_shorter_range() {
     assert_eq!(
         Rhythm(vec![
             Subdivision {
-                timing: 0..1,
+                start: 0,
+                end: 1,
                 is_rest: false
             },
             Subdivision {
-                timing: 1..3,
+                start: 1,
+                end: 3,
                 is_rest: false
             },
             Subdivision {
-                timing: 3..4,
+                start: 3,
+                end: 4,
                 is_rest: false
             },
         ])
-        .over(&(0..3)),
+        .over(0..3),
         vec![
             Subdivision {
-                timing: 0..1,
+                start: 0,
+                end: 1,
                 is_rest: false
             },
             Subdivision {
-                timing: 1..3,
+                start: 1,
+                end: 3,
                 is_rest: false
             },
         ]
@@ -87,30 +102,36 @@ fn should_return_same_over_same_range() {
     assert_eq!(
         Rhythm(vec![
             Subdivision {
-                timing: 0..1,
+                start: 0,
+                end: 1,
                 is_rest: false
             },
             Subdivision {
-                timing: 1..3,
+                start: 1,
+                end: 3,
                 is_rest: false
             },
             Subdivision {
-                timing: 3..4,
+                start: 3,
+                end: 4,
                 is_rest: false
             },
         ])
-        .over(&(0..4)),
+        .over(0..4),
         vec![
             Subdivision {
-                timing: 0..1,
+                start: 0,
+                end: 1,
                 is_rest: false
             },
             Subdivision {
-                timing: 1..3,
+                start: 1,
+                end: 3,
                 is_rest: false
             },
             Subdivision {
-                timing: 3..4,
+                start: 3,
+                end: 4,
                 is_rest: false
             },
         ]

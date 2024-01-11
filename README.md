@@ -1,139 +1,209 @@
-A library for building modular musical composers.
+# ![icon] RedACT Composer
 
-Currently this library is in a prototyping phase, undergoing major breaking changes frequently and without warning.
+**A library for building modular musical composers.**
 
-Composers are built by creating a set of components, and defining how each of these components will produce
-further sub-components. In this library's domain, these correspond to the `CompositionElement` and `Renderer` traits
-respectively.
+Composers are built by creating a set of composition elements, and defining how each of these elements will generate
+further sub-elements. In this library's domain, these correspond to the
+[`Element`](crate::Element) and [`Renderer`](crate::Renderer) traits respectively.
+
+<br />
+<hr />
+<div align="center">
+
+Jump to: \[ [Example](#example) | [Bigger Example](#much-bigger-example) | [Inspector](#inspector) | [Features](#features) \]
+</div>
+<hr />
+
+<details open>
+<summary> 
 
 ## Example
-As an example, we'll create a simple I-IV-V-I chord composer. The full code example can be found at `./examples/simple.rs`.
+</summary>
+
+The basic capabilities can be demonstrated by creating a simple I-IV-V-I chord composer. The full code example is
+located at 
+[`redact-composer/examples/simple.rs`](https://github.com/dousto/redact-composer/blob/master/examples/simple.rs).
 
 ### Building Blocks
-To start, we will use some of the library provided components (`Composition`, `Chord`, `Key`, `Part`, `PlayNote`) and
-one new component called `PlayChords`.
+This example composer will use some library-provided elements ([`Chord`](crate::musical::elements::Chord),
+[`Key`](crate::musical::elements::Key), [`Part`](crate::elements::Part), [`PlayNote`](crate::elements::PlayNote)) and
+two new elements:
 ```rust
-#[derive(Debug, Serialize, Deserialize)]
-struct PlayChords;
+#[derive(Element, Serialize, Deserialize, Debug)]
+pub struct CompositionRoot;
 
-#[typetag::serde]
-impl CompositionElement for PlayChords {}
+#[derive(Element, Serialize, Deserialize, Debug)]
+struct PlayChords;
 ```
 
-With these components, we can define how they generate the composition structure.
+Before moving ahead, some background: A composition is an n-ary tree structure and is "composed" by starting with a
+root [`Element`](crate::Element), and calling its associated [`Renderer`](crate::Renderer) which
+generates additional [`Element`](crate::Element)s as children. These children then have their
+[`Renderer`](crate::Renderer)s called, and this process continues until tree leaves are reached (i.e. elements that do
+not generate further children).
 
-By convention, compositions use the provided `Composition` component as a starting point, but it doesn't have any
-predefined render behaviors so we'll implement one for it.
+This composer will use the `CompositionRoot` element as a root. Defining a [`Renderer`](crate::Renderer) for this
+then looks like:
 
 ```rust
 struct CompositionRenderer;
+
 impl Renderer for CompositionRenderer {
-    type Item = Composition;
+    type Element = CompositionRoot;
 
     fn render(
-        &self, _segment: &Self::Item, time_range: &Range<i32>, _context: &CompositionContext
-    ) -> Result<Vec<CompositionSegment>> {
-        let chord_rhythm = Rhythm(vec![Subdivision { timing: 0..2 * STANDARD_BEAT_LENGTH, is_rest: false }]);
-
+        &self, composition: SegmentRef<Self::Element>, context: CompositionContext,
+    ) -> Result<Vec<Segment>> {
         Ok(
-            // Repeat four chords over the composition
-            chord_rhythm.iter_over(time_range)
+            // Repeat four chords over the composition -- one every two beats
+            Rhythm::from([2 * context.beat_length()]).iter_over(composition.timing)
                 .zip([Chord::I, Chord::IV, Chord::V, Chord::I].into_iter().cycle())
-                .map(|(rhythm_subdivision, chord)| {
-                    CompositionSegment::new(
-                        chord,
-                        rhythm_subdivision.timing)
-                })
-                .chain(vec![
-                    // Also include our new component, spanning the whole composition
-                    CompositionSegment::new(
-                        Part::instrument(PlayChords),
-                        time_range
-                    ),
+                .map(|(subdivision, chord)| chord.into_segment(subdivision.timing()))
+                .chain([
+                    // Also include the new component, spanning the whole composition
+                    Part::instrument(PlayChords).into_segment(composition.timing),
                     // And a Key for the composition -- used later
-                    CompositionSegment::new(
-                        Key { tonic: 0 /* C */, scale: Scale::Major, mode: Default::default() },
-                        time_range,
-                    ),
+                    Key { tonic: 0, /* C */ scale: Scale::Major, mode: Default::default() }
+                        .into_segment(composition.timing)
                 ])
                 .collect::<Vec<_>>(),
         )
     }
 }
 ```
-Note: `Part::instrument(...)` is just a wrapper for a component, indicating that notes generated within the wrapped type
-are the be played by a single instrument at a time. 
 
-At this point, we have a `Composition` that generates 4 `Chord`s, and a `PlayChords` component. However,
-`Chord` and `PlayChords` are just abstract concepts so we need another renderer that produces something concrete. This
-will be done with another `Renderer` for `PlayChords`
+> Note: [`Part::instrument(...)`](crate::elements::Part::instrument) is just a wrapper for another element, indicating
+> that notes generated within the wrapped element are to be played by a single instrument at a time.
+
+This [`Renderer`](crate::Renderer) takes a `CompositionRoot` element (via a [`SegmentRef`](crate::SegmentRef)) and generates several
+children including [`Chord`](crate::musical::elements::Chord) elements (with a [`Rhythm`](crate::musical::rhythm::Rhythm) of one every two beats over the composition), the
+newly defined `PlayChords` element, and a [`Key`](crate::musical::elements::Key) element (spanning the whole composition) which will be used later
+to determine which specific notes to play. These children are returned as [`Segment`](crate::Segment)s, which defines where they
+are located in the composition's timeline.
+
+At this stage, the [`Chord`](crate::musical::elements::Chord) and `PlayChords` elements are just abstract concepts
+however, and need to produce something concrete. This is done with another [`Renderer`](crate::Renderer) for
+`PlayChords`:
 
 ```rust
 struct PlayChordsRenderer;
 impl Renderer for PlayChordsRenderer {
-    type Item = PlayChords;
+    type Element = PlayChords;
 
     fn render(
-        &self, _segment: &Self::Item, time_range: &Range<i32>, context: &CompositionContext
-    ) -> Result<Vec<CompositionSegment>> {
-        // Using `CompositionContext` we can grab the chords and key generated by our `CompositionRenderer`
-        let chords = context.find::<Chord>().with_timing(Within, time_range).require_all()?;
-        let key = context.find::<Key>().with_timing(During, time_range).require()?.value;
+        &self, play_chords: SegmentRef<Self::Element>, context: CompositionContext,
+    ) -> Result<Vec<Segment>> {
+        // `CompositionContext` enables finding previously rendered elements
+        let chord_segments = context.find::<Chord>()
+            .with_timing(Within, play_chords.timing)
+            .require_all()?;
+        let key = context.find::<Key>()
+            .with_timing(During, play_chords.timing)
+            .require()?.element;
+        // As well as random number generation
+        let mut rng = context.rng();
 
-        Ok(
-            // Generate a PlayNote component for each note in the chords
-            chords.iter().flat_map(|chord_segment| {
-                Notes::from(key.chord(chord_segment.value)).in_range(60..72).into_iter().map(|note| {
-                    CompositionSegment::new(
-                        PlayNote { note, velocity: 100 },
-                        &chord_segment.time_range,
-                    )
-                })
-            })
-            .collect::<Vec<_>>(),
-        )
+        // Map Chord notes to PlayNote elements, forming a triad
+        let notes = chord_segments.iter().flat_map(|chord| {
+            Notes::from(key.chord(chord.element)).in_range(60..72).into_iter()
+                .map(|note|
+                    // Add subtle nuance striking the notes with different velocities
+                    PlayNote { note, velocity: rng.gen_range(80..110) }
+                        .into_segment(chord.timing)
+                )
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+
+        Ok(notes)
     }
 }
 ```
 
+Here, [`CompositionContext`](crate::render::context::CompositionContext) is used to reference the previously created
+[`Chord`](crate::musical::elements::Chord) and [`Key`](crate::musical::elements::Key) segments. Each
+[`Chord`](crate::musical::elements::Chord) is then mapped into notes within a specific octave using the
+[`Key`](crate::musical::elements::Key) and [`Notes`](crate::musical::Notes) utility. This results in three notes for
+each [`Chord`](crate::musical::elements::Chord) and returns them as [`PlayNote`](crate::elements::PlayNote) segments.
+
 ### Creating the Composer
-In concept, a `Composer` is just a set of `Renderer`s, so with just a bit of glue we can create one with our own renderers.
+In essence, a [`Composer`](crate::Composer) is just a set of [`Renderer`](crate::Renderer)s, and can be constructed with
+just a little bit of glue:
 
 ```rust
-let composer = Composer {
-    engine: RenderEngine::new() + CompositionRenderer + PlayChordsRenderer,
-};
+let composer = Composer::from(
+    RenderEngine::new() + CompositionRenderer + PlayChordsRenderer,
+);
 ```
 
-Give it a spin by calling its `compose()` function.
+And finally the magic unfolds by passing a root [`Segment`](crate::Segment) to its
+[`compose()`](crate::Composer::compose) method.
 
 ```rust
 // Create a 16-beat length composition
-let render_tree: Tree<RenderSegment> = composer.compose(
-    CompositionSegment::new(Composition, 0..(STANDARD_BEAT_LENGTH * 16))
-);
+let composition_length = composer.options.ticks_per_beat * 16;
+let composition = composer.compose(CompositionRoot.into_segment(0..composition_length));
 
 // Convert it to a MIDI file and save it
-MidiConverter::convert(&render_tree)
-    .save("./composition.mid")
-    .unwrap();
+MidiConverter::convert(&composition).save("./composition.mid").unwrap();
 ```
 
-Plug the `composition.mid` file into your favorite MIDI player and it should sound somewhat like this:
+When plugged into your favorite midi player, the `composition.mid` file should sound somewhat like this:
 
-https://github.com/dousto/redact-composer/assets/5882189/9928539f-2e15-4049-96ad-f536784ee7a1
+<https://github.com/dousto/redact-composer/assets/5882189/9928539f-2e15-4049-96ad-f536784ee7a1>
 
-Additionally, composition outputs (`Tree<RenderSegment>`) support serialization/deserialization.
+Additionally, composition outputs support serialization/deserialization (with `serde` feature, enabled by default).
 
 ```rust
 // Write the composition output in json format
-fs::write(
-    "./composition.json",
-    serde_json::to_string_pretty(&render_tree).unwrap(),
-)
-.unwrap();
+fs::write("./composition.json", serde_json::to_string_pretty(&composition).unwrap()).unwrap();
 ```
-
+</details>
+<details open>
+<summary>
 
 ## Much bigger example
-https://github.com/dousto/redact-renderer-example
+</summary>
+
+Check out [this repo](https://github.com/dousto/redact-renderer-example) for a more in depth example which utilizes
+additional features to create a full length composition.
+</details>
+<details open>
+<summary>
+
+## Inspector
+</summary>
+
+Debugging composition outputs can quickly get unwieldy with larger compositions.
+[redact-composer-inspector](https://dousto.github.io/redact-composer-inspector/) is a simple web tool that helps to
+visualize and navigate the structure of [`Composition`](crate::Composition) outputs (currently only compatible with
+json output).
+
+For example, here is the [simple example loaded in the inspector](https://dousto.github.io/redact-composer-inspector/inspect?composition=examples/simple).
+</details>
+<details open>
+<summary>
+
+## Features
+</summary>
+
+### `default`
+`derive`, `musical`, `midi`, `serde`
+
+### `derive` <sub>default</sub>
+Enable derive macro for [`Element`](crate::Element).
+
+### `musical` <sub>default</sub>
+Include [`musical`](crate::musical) domain module. ([`Key`](crate::musical::Key), [`Chord`](crate::musical::Chord),
+[`Rhythm`](crate::musical::rhythm::Rhythm), etc..).
+
+### `midi` <sub>default</sub>
+Include [`midi`](crate::midi) module containing MIDI-related [`Element`](crate::Element)s and MIDI converter for
+[`Composition`](crate::Composition)s.
+
+### `serde` <sub>default</sub>
+Enables serialization and deserialization of [`Composition`](crate::Composition) outputs via (as you may have guessed)
+[`serde`](https://docs.rs/serde/latest/serde/).
+</details>
+
+[icon]: https://dousto.github.io/redact-composer-inspector-dev/favicon-32.png ""

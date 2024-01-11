@@ -1,0 +1,21 @@
+[package]
+name = "redact-composer-musical"
+description = "Music theory domain models and utilities packaged with redact-composer"
+version = "0.1.0"
+repository = "https://github.com/dousto/redact-composer"
+authors = ["Doug Stoeckmann <dousto@gmail.com>"]
+keywords = ["music", "theory"]
+license = "MIT OR Apache-2.0"
+edition = "2021"
+
+[dependencies]
+rand = { workspace = true }
+
+redact-composer-core = { optional = true, workspace = true  }
+serde = { optional = true, workspace = true }
+typetag = { optional = true, workspace = true }
+
+[features]
+default = []
+redact-composer = ["dep:redact-composer-core"]
+serde = ["dep:serde", "dep:typetag", "redact-composer-core?/serde"]

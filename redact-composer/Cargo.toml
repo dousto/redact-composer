@@ -1,0 +1,46 @@
+[package]
+name = "redact-composer"
+description = "A library for building modular musical composers."
+version = "0.1.0"
+repository = "https://github.com/dousto/redact-composer"
+authors = ["Doug Stoeckmann <dousto@gmail.com>"]
+keywords = ["compose", "music"]
+categories = ["multimedia::audio", "simulation"]
+readme = "../README.md"
+license = "MIT OR Apache-2.0"
+edition = "2021"
+
+[dependencies]
+redact-composer-core = { workspace = true }
+
+redact-composer-derive = { optional = true, workspace = true }
+redact-composer-musical = { optional = true, workspace = true }
+redact-composer-midi = { optional = true, workspace = true }
+
+[features]
+default = ["derive", "musical", "midi", "serde"]
+# Enables derive macro for Element
+derive = ["dep:redact-composer-derive"]
+# Provides music theory domain models and utilities
+musical = [
+    "dep:redact-composer-musical",
+    "redact-composer-musical?/redact-composer"
+]
+# Provides MIDI-related elements and composition output converter
+midi = ["dep:redact-composer-midi"]
+# Enables serialization and deserialization of compositions via serde
+serde = [
+    "redact-composer-core/serde",
+    "redact-composer-derive?/serde",
+    "redact-composer-musical?/serde",
+    "redact-composer-midi?/serde"
+]
+
+[[example]]
+name = "simple"
+
+[dev-dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+typetag = { workspace = true }
+rand = { workspace = true }
