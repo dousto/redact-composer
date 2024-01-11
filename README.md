@@ -22,7 +22,7 @@ Jump to: \[ [Example](#example) | [Bigger Example](#much-bigger-example) | [Insp
 
 The basic capabilities can be demonstrated by creating a simple I-IV-V-I chord composer. The full code example is
 located at 
-[`redact-composer/examples/simple.rs`](https://github.com/dousto/redact-composer/blob/master/examples/simple.rs).
+[`redact-composer/examples/simple.rs`](https://github.com/dousto/redact-composer/blob/main/redact-composer/examples/simple.rs).
 
 ### Building Blocks
 This example composer will use some library-provided elements ([`Chord`](crate::musical::elements::Chord),
