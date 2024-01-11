@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rust: [ stable, nightly, 1.62.0 ]
+        rust: [ stable, nightly, 1.64.0 ]
         os: [ ubuntu, macos, windows ]
     timeout-minutes: 20
     steps:
@@ -68,21 +68,14 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@nightly
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          components: llvm-tools-preview
+          components: cargo-llvm-cov
+      - run: cargo llvm-cov --html
 
-      - uses: taiki-e/install-action@cargo-llvm-cov
-      - uses: taiki-e/install-action@nextest
-
-      - name: Run coverage
-        run: ./coverage.sh
-
-      - name: Save coverage
-        uses: zgosalvez/github-actions-report-lcov@v4
-        with:
-          coverage-files: ./target/coverage/lcov.info
-          artifact-name: code-coverage-report
+      - uses: actions/upload-artifact@v4
+        name: test-coverage.html
+        path: ./target/llvm-cov/html/index.html
 
   build_example:
     name: Build example
