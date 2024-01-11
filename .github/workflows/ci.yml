@@ -73,13 +73,15 @@ jobs:
           components: llvm-tools-preview
       - uses: taiki-e/install-action@cargo-llvm-cov
 
-      - run: cargo llvm-cov --all-features --workspace --html
-      - run: cargo llvm-cov report --lcov
+      - run: cargo llvm-cov --all-features --workspace --doctests --html
+      - run: cargo llvm-cov report --lcov --output-path ./target/llvm-cov/lcov.info
+      - run: cargo llvm-cov report --cobertura --output-path ./target/llvm-cov/lcov.xml
+      - run: cargo llvm-cov report --json --output-path ./target/llvm-cov/lcov.json
 
       - uses: actions/upload-artifact@v4
         with:
           name: test-coverage
-          path: ./target/llvm-cov/html/
+          path: ./target/llvm-cov/
 
   build_example:
     name: Build example
