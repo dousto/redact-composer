@@ -4,7 +4,8 @@ description = "Core components of redact-composer."
 version = "0.1.0"
 repository = "https://github.com/dousto/redact-composer"
 authors = ["Doug Stoeckmann <dousto@gmail.com>"]
-license = "MIT OR Apache-2.0"
+readme = "../README.md"
+license = "MIT"
 edition = "2021"
 
 [dependencies]

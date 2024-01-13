@@ -7,7 +7,7 @@ authors = ["Doug Stoeckmann <dousto@gmail.com>"]
 keywords = ["compose", "music"]
 categories = ["multimedia::audio", "simulation"]
 readme = "../README.md"
-license = "MIT OR Apache-2.0"
+license = "MIT"
 edition = "2021"
 
 [dependencies]

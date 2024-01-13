@@ -6,7 +6,8 @@ repository = "https://github.com/dousto/redact-composer"
 authors = ["Doug Stoeckmann <dousto@gmail.com>"]
 keywords = ["redact-composer", "midi", "convert", "encode"]
 categories = ["encoding", "multimedia::audio"]
-license = "MIT OR Apache-2.0"
+readme = "../README.md"
+license = "MIT"
 edition = "2021"
 
 [dependencies]
