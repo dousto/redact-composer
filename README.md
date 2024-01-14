@@ -1,6 +1,11 @@
 # ![icon] RedACT Composer
 
-**A library for building modular musical composers.**
+[![docs-badge]][docs-link]
+[![crates.io-badge]][crates.io-link]
+[![ci-badge]][ci-link]
+![license-badge]
+
+**A Rust library for building modular musical composers.**
 
 Composers are built by creating a set of composition elements, and defining how each of these elements will generate
 further sub-elements. In this library's domain, these correspond to the
@@ -12,7 +17,12 @@ further sub-elements. In this library's domain, these correspond to the
 <hr />
 <div align="center">
 
-Jump to: \[ [Example](#example) | [Bigger Example](#much-bigger-example) | [Inspector](#inspector) | [Features](#features) \]
+Jump to: [
+[Example](#example)
+| [Bigger Example](#much-bigger-example)
+| [Inspector](#inspector)
+| [Crate Features](#features)
+]
 </div>
 <hr />
 
@@ -209,3 +219,10 @@ Enables serialization and deserialization of [`Composition`](crate::Composition)
 </details>
 
 [icon]: https://dousto.github.io/redact-composer-inspector-dev/favicon-32.png ""
+[docs-badge]: https://docs.rs/redact-composer/badge.svg
+[docs-link]: https://docs.rs/redact-composer
+[crates.io-badge]: https://img.shields.io/crates/v/redact-composer.svg
+[crates.io-link]: https://crates.io/crates/redact-composer
+[ci-badge]: https://github.com/dousto/redact-composer/workflows/CI/badge.svg
+[ci-link]: https://github.com/dousto/redact-composer/actions
+[license-badge]: https://img.shields.io/crates/l/redact-composer.svg
