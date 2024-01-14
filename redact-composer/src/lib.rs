@@ -1,5 +1,5 @@
 #![deny(missing_docs, missing_debug_implementations)]
-#![cfg_attr(not(doctest), doc = include_str!("../../README.md"))]
+#![cfg_attr(not(doctest), doc = include_str!("../README.md"))]
 
 /// Utility traits and types.
 pub mod util;
