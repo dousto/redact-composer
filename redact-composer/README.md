@@ -18,13 +18,30 @@ further sub-elements. In this library's domain, these correspond to the
 <div align="center">
 
 Jump to: [
-[Example](#example)
+[Setup](#setup)
+| [Example](#example)
 | [Bigger Example](#much-bigger-example)
 | [Inspector](#inspector)
-| [Crate Features](#features)
+| [Feature Flags](#feature-flags)
 ]
 </div>
 <hr />
+
+<details open>
+<summary>
+
+## Setup
+</summary>
+
+```shell
+cargo add redact-composer
+```
+
+If using the `serde` [feature](#feature-flags), `typetag` is also required:
+```shell
+cargo add typetag
+```
+</details>
 
 <details open>
 <summary> 
@@ -33,7 +50,7 @@ Jump to: [
 </summary>
 
 The basic capabilities can be demonstrated by creating a simple I-IV-V-I chord composer. The full code example is
-located at 
+located at
 [`redact-composer/examples/simple.rs`](https://github.com/dousto/redact-composer/blob/main/redact-composer/examples/simple.rs).
 
 ### Building Blocks
@@ -196,7 +213,7 @@ For example, here is the [simple example loaded in the inspector](https://dousto
 <details open>
 <summary>
 
-## Features
+## Feature Flags
 </summary>
 
 ### `default`
