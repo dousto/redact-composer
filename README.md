@@ -6,7 +6,9 @@ Composers are built by creating a set of composition elements, and defining how 
 further sub-elements. In this library's domain, these correspond to the
 [`Element`](crate::Element) and [`Renderer`](crate::Renderer) traits respectively.
 
-<br />
+> This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Most importantly at this time
+> would be [spec item #4](https://semver.org/spec/v2.0.0.html#spec-item-4).
+
 <hr />
 <div align="center">
 
