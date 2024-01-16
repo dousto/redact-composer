@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1](https://github.com/dousto/redact-composer/compare/redact-composer-v0.1.0...redact-composer-v0.1.1) - 2024-01-16
+
+### Other
+- Add cargo setup commands to README
+- release
+
 ## [0.1.0](https://github.com/dousto/redact-composer/releases/tag/redact-composer-v0.1.0) - 2024-01-14
 
 ### Other
