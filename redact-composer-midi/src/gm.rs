@@ -15,13 +15,13 @@ use redact_composer_core::{
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-/// Default renderers used for GM [`Element`]s
+/// Default renderers used for GM [`Element`](redact_composer_core::Element)s
 /// ([`Instrument`] and [`DrumHit`]).
 pub fn renderers() -> RenderEngine {
     RenderEngine::new() + Instrument::renderer() + DrumHit::renderer()
 }
 
-/// Types implementing [`Element`].
+/// Types implementing [`Element`](redact_composer_core::Element).
 pub mod elements {
     pub use super::{DrumHit, Instrument};
 }

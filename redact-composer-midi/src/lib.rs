@@ -1,5 +1,5 @@
 #![deny(missing_docs, missing_debug_implementations)]
-//! MIDI-related types, [`Element`]s and
+//! MIDI-related types, [`Element`](redact_composer_core::Element)s and
 //! [`Composition`](redact_composer_core::Composition) output converter.
 
 /// Midi converter for [`Composition`](redact_composer_core::Composition) output.
@@ -15,7 +15,7 @@ use redact_composer_core::IntoCompositionSegment;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-/// Elements implementing [`Element`].
+/// Elements implementing [`Element`](redact_composer_core::Element).
 pub mod elements {
     pub use super::{DrumKit, Program};
 }
