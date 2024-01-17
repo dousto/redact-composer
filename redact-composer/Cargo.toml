@@ -11,11 +11,11 @@ license = "MIT"
 edition = "2021"
 
 [dependencies]
-redact-composer-core = { workspace = true }
+redact-composer-core = { path = "../redact-composer-core", version = "0.1.1" }
 
-redact-composer-derive = { optional = true, workspace = true }
-redact-composer-musical = { optional = true, workspace = true }
-redact-composer-midi = { optional = true, workspace = true }
+redact-composer-derive = { optional = true, path = "../redact-composer-derive", version = "0.1.0" }
+redact-composer-musical = { optional = true, path = "../redact-composer-musical", version = "0.1.1" }
+redact-composer-midi = { optional = true, path = "../redact-composer-midi", version = "0.1.1" }
 
 [features]
 default = ["derive", "musical", "midi", "serde"]

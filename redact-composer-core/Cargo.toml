@@ -9,7 +9,7 @@ license = "MIT"
 edition = "2021"
 
 [dependencies]
-redact-composer-derive = { workspace = true }
+redact-composer-derive = { path = "../redact-composer-derive", version = "0.1.0" }
 rand = { workspace = true }
 rand_chacha = "0.3.1"
 twox-hash = { version = "1.6.3", default-features = false, features = [] }
