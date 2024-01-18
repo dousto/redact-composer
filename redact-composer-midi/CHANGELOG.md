@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3](https://github.com/dousto/redact-composer/compare/redact-composer-midi-v0.1.2...redact-composer-midi-v0.1.3) - 2024-01-18
+
+### Other
+- *(deps)* Update redact-composer-core to 0.1.2
+
 ## [0.1.2](https://github.com/dousto/redact-composer/compare/redact-composer-midi-v0.1.1...redact-composer-midi-v0.1.2) - 2024-01-17
 
 ### Other
