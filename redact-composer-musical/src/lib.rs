@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(test)]
 mod test;
 
-/// Types implementing [`Element`].
+/// Types implementing [`Element`](redact_composer_core::Element).
 #[cfg(feature = "redact-composer")]
 pub mod elements {
     pub use super::{timing::*, Chord, Key, Mode, Scale};
