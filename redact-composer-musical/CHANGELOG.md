@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4](https://github.com/dousto/redact-composer/compare/redact-composer-musical-v0.1.3...redact-composer-musical-v0.1.4) - 2024-01-18
+
+### Other
+- Update Element link to point to trait, not macro
+
 ## [0.1.3](https://github.com/dousto/redact-composer/compare/redact-composer-musical-v0.1.2...redact-composer-musical-v0.1.3) - 2024-01-18
 
 ### Other
