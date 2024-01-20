@@ -1,8 +1,10 @@
 #![deny(missing_docs, missing_debug_implementations)]
-//! MIDI-related types, [`Element`](redact_composer_core::Element)s and
-//! [`Composition`](redact_composer_core::Composition) output converter.
+//! MIDI-related types, [`Element`]s and [`Composition`] output converter.
 
-/// Midi converter for [`Composition`](redact_composer_core::Composition) output.
+#[allow(unused_imports)] // Imports used in doc comments only
+use redact_composer_core::{elements::Part, Composition, Element};
+
+/// Midi converter for [`Composition`] output.
 pub mod convert;
 
 /// General Midi Level 1 types and elements.
@@ -15,19 +17,17 @@ use redact_composer_core::IntoCompositionSegment;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-/// Elements implementing [`Element`](redact_composer_core::Element).
+/// Elements implementing [`Element`].
 pub mod elements {
     pub use super::{DrumKit, Program};
 }
 
-/// The renderers for [`Element`]s of this
-/// module.
+/// The renderers for [`Element`]s of this module.
 pub fn renderers() -> RenderEngine {
     RenderEngine::new() + DrumKit::renderer() + gm::renderers()
 }
 
-/// A program number (instrument) that should play during a
-/// [`Part`](redact_composer_core::elements::Part).
+/// A program number (instrument) that should play during a [`Part`].
 #[derive(Element, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Program(pub u8);
