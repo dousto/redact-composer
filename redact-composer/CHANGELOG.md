@@ -9,9 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.5](https://github.com/dousto/redact-composer/compare/redact-composer-v0.1.4...redact-composer-v0.1.5) - 2024-03-05
 
 ### Other
-- Update readme with new changes to the example
 - Update simple example w/ new musical concepts
-- Update renamed trait
+- Update readme with new changes to the example
+- Update renamed trait (`IntoCompositionSegment` -> `IntoSegment`)
 
 ## [0.1.4](https://github.com/dousto/redact-composer/compare/redact-composer-v0.1.3...redact-composer-v0.1.4) - 2024-01-19
 
