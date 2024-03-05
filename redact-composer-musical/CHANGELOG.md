@@ -9,21 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.2.0](https://github.com/dousto/redact-composer/compare/redact-composer-musical-v0.1.4...redact-composer-musical-v0.2.0) - 2024-03-05
 
 ### Added
-- Add derive(Element) for Rhythm
-- Replace Notes w/ new NoteIterator trait
-- Add NoteName concept
-- Separate Scale as module w/ updates according to newly added concepts
-- Separate Key as module w/ updates according to newly added concepts
-- Add PitchClass concept
-- Add Note concept
-- Add Interval concept
-- Represent chords as PitchClass / ChordShape instead of purely relative
+- Added `PitchClass` concept
+- Added `Interval` concept
+- Added `Note` concept
+- Added `NoteName` concept
+- Reworked `Chord` to represent as a `PitchClass` + `ChordShape` instead of purely relative
+- Replaced `Notes` w/ new `NoteIterator` trait
+- Updated `Scale` w/ newly added concepts
+- Updated `Key` w/ newly added concepts
+- Add `derive(Element)` for `Rhythm`
 
 ### Other
-- Update tests according to new changes
-- Separate scale Degree as module
-- Separate Mode as module
-- Re-organize as separate modules.
+- Re-organize crate structure as separate modules.
 
 ## [0.1.4](https://github.com/dousto/redact-composer/compare/redact-composer-musical-v0.1.3...redact-composer-musical-v0.1.4) - 2024-01-19
 
