@@ -5,7 +5,7 @@ use num_derive::FromPrimitive;
 use std::ops::{Add, Sub};
 
 use crate::elements::Program;
-use redact_composer_core::{derive::Element, IntoCompositionSegment};
+use redact_composer_core::{derive::Element, IntoSegment};
 use redact_composer_core::{
     elements::PlayNote,
     render::{AdhocRenderer, RenderEngine, Renderer, Result},
@@ -203,9 +203,7 @@ impl Instrument {
     /// Renderer that render an [`Instrument`] segment as a [`Program`] with the same timing.
     pub fn renderer() -> impl Renderer<Element = Self> {
         AdhocRenderer::<Self>::new(|segment, _| {
-            Result::Ok(vec![
-                Program::from(*segment.element).into_segment(segment.timing)
-            ])
+            Result::Ok(vec![Program::from(*segment.element).over(segment.timing)])
         })
     }
 }

@@ -66,14 +66,14 @@ pub struct RenderSegment {
 /// # use serde::{Deserialize, Serialize};
 /// # use redact_composer_core::derive::Element;
 /// # use redact_composer_core::elements::PlayNote;
-/// # use redact_composer_core::IntoCompositionSegment;
+/// # use redact_composer_core::IntoSegment;
 /// # use redact_composer_core::render::AdhocRenderer;
 /// # #[derive(Element, Debug, Serialize, Deserialize)]
 /// # struct SomeElement;
 /// let renderer = AdhocRenderer::<SomeElement>::new(|segment, context| {
 ///     Ok(vec![
 ///         PlayNote {note: 60, velocity: 100 }
-///         .into_segment(segment.timing)
+///         .over(segment.timing)
 ///     ])
 /// });
 /// ```
