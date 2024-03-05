@@ -111,19 +111,19 @@ impl Segment {
         }
     }
 
-    /// Creates a new [`Segment`] from a [`Element`] which starts/ends
-    /// according to `timing`, and seeded by its `name`. Useful if you want certain
-    /// segments to be repeated/reproduced (i.e. be rendered with the same Rng)
-    pub fn named(
-        name: String,
-        composition_type: impl Element,
-        timing: impl Into<Timing>,
-    ) -> Segment {
-        Segment {
-            element: Box::new(composition_type),
-            timing: timing.into(),
-            name: Some(name),
-        }
+    /// Gives this [`Segment`] a name, used to seed its [`Rng`](rand::Rng), and returns the new named version. Useful if
+    /// you want certain segments to be repeated/reproduced (i.e. be rendered with the same Rng).
+    pub fn named(mut self, name: String) -> Self {
+        self.name = Some(name);
+
+        self
+    }
+
+    /// Removes the [`Segment`]'s a name, if it has one, returning the resulting unnamed segment.
+    pub fn unnamed(mut self) -> Self {
+        self.name = None;
+
+        self
     }
 
     /// Gets the contained element if its type matches type `Element`, otherwise, `None` is
@@ -189,7 +189,7 @@ impl<'a, T: Element> TryFrom<&'a Segment> for SegmentRef<'a, T> {
     }
 }
 
-impl<'a, T> IntoCompositionSegment for SegmentRef<'a, T>
+impl<'a, T> IntoSegment for SegmentRef<'a, T>
 where
     T: Element + Clone,
 {
@@ -201,25 +201,25 @@ where
     /// # use redact_composer_core::elements::PlayNote;
     /// # use redact_composer_core::SegmentRef;
     /// # use redact_composer_core::timing::Timing;
-    /// # use redact_composer_core::IntoCompositionSegment;
+    /// # use redact_composer_core::IntoSegment;
     /// # let timing = Timing::from(0..1);
     /// # let s = (PlayNote { note: 0, velocity: 0}, Timing::from(0..1), None);
     /// # let segment_ref = SegmentRef { element: &s.0,timing: &s.1, name: &s.2 };
-    /// let segment = segment_ref.element.clone().into_segment(timing);
+    /// let segment = segment_ref.into_segment(timing).unnamed();
     /// ```
     fn into_segment(self, timing: impl Into<Timing>) -> Segment {
         if let Some(name) = self.name {
-            self.into_named_segment(name.clone(), timing)
+            self.element
+                .clone()
+                .into_segment(timing)
+                .named(name.clone())
         } else {
             self.element.clone().into_segment(timing)
         }
     }
 
-    /// Turns this [`SegmentRef`] into a new [`Segment`] with a given `name` and `timing`.
-    /// Naming segments ensures that any sibling segments with the same name will be seeded
-    /// identically.
-    fn into_named_segment(self, name: String, timing: impl Into<Timing>) -> Segment {
-        self.element.clone().into_named_segment(name, timing)
+    fn over(self, timing: impl Into<Timing>) -> Segment {
+        self.into_segment(timing)
     }
 }
 
@@ -234,26 +234,23 @@ impl<'a, T: Element> RangeBounds<i32> for SegmentRef<'a, T> {
 }
 
 /// Conversion methods to create a [`Segment`] from a [`Element`].
-pub trait IntoCompositionSegment: private::Sealed {
-    /// Conversion method into a [`Segment`] spanning a given time range.
+pub trait IntoSegment: private::Sealed {
+    /// Creates a [`Segment`] from this element, spanning the given time range.
     fn into_segment(self, timing: impl Into<Timing>) -> Segment;
-    /// Conversion method into a named (fixed Rng) [`Segment`] spanning a given
-    /// time range.
-    fn into_named_segment(self, name: String, timing: impl Into<Timing>) -> Segment;
+
+    /// Creates a [`Segment`] from this element, spanning the given time range.
+    fn over(self, timing: impl Into<Timing>) -> Segment;
 }
 
-impl<T: Element> IntoCompositionSegment for T {
-    /// Converts this element into a [`Segment`] spanning the given time range.
+impl<T: Element> IntoSegment for T {
+    /// Creates a [`Segment`] from this element, spanning the given time range.
     fn into_segment(self, timing: impl Into<Timing>) -> Segment {
         Segment::new(self, timing)
     }
 
-    /// Converts this element into a named (fixed Rng) [`Segment`] spanning the given
-    /// time range.
-    /// Naming segments ensures that any other sibling segments with the same name will be seeded
-    /// identically.
-    fn into_named_segment(self, name: String, timing: impl Into<Timing>) -> Segment {
-        Segment::named(name, self, timing)
+    /// Creates a [`Segment`] from this element, spanning the given time range.
+    fn over(self, timing: impl Into<Timing>) -> Segment {
+        self.into_segment(timing)
     }
 }
 
@@ -267,7 +264,7 @@ pub mod elements {
     use serde::{Deserialize, Serialize};
 
     /// Play a note with a velocity.
-    #[derive(Element, Clone, Copy, Debug)]
+    #[derive(Element, Clone, Copy, Debug, Eq, PartialEq)]
     #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
     pub struct PlayNote {
         /// Note represented as u8, with `note % 12 == 0` representing 'C'.
