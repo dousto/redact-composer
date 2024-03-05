@@ -9,6 +9,9 @@ use rand::{seq::SliceRandom, Rng};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "redact-composer")]
+use redact_composer_core::derive::Element;
+
 #[cfg(test)]
 mod test;
 
@@ -184,6 +187,7 @@ impl Add<Rhythm> for Rhythm {
 /// Represents a rhythm as a sequence of timing divisions ([`Vec<Subdivision>`]).
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "redact-composer", derive(Element))]
 pub struct Rhythm(pub Vec<Subdivision>);
 impl Rhythm {
     /// Creates a new empty rhythm.
@@ -320,7 +324,8 @@ impl Rhythm {
         )
     }
 
-    /// Generates a random rhythm.
+    /// Generates a random rhythm using a set of sub-sequences of subdivision lengths. Random sub-sequences are chosen
+    /// until their combined length reaches the target length.
     pub fn random_with_subdivisions_weights(
         length: i32,
         subdivision_weights: &[(Vec<i32>, i32)],
