@@ -1,21 +1,17 @@
 use rand::Rng;
 use redact_composer::{
-    elements::{Part, PlayNote},
+    elements::Part,
     midi::convert::MidiConverter,
-    musical::{
-        elements::{Chord, Key, Scale},
-        rhythm::Rhythm,
-        Notes,
-    },
-    render::context::{
-        CompositionContext,
-        TimingRelation::{During, Within},
-    },
+    musical::{elements::Chord, rhythm::Rhythm},
+    render::context::{CompositionContext, TimingRelation::Within},
     render::{RenderEngine, Result},
-    util::IntoCompositionSegment,
+    util::IntoSegment,
     Composer, Renderer, Segment,
 };
 use redact_composer_core::SegmentRef;
+use redact_composer_musical::ChordShape::maj;
+use redact_composer_musical::NoteName::{C, F, G};
+use redact_composer_musical::{Note, NoteIterator};
 use serde::{Deserialize, Serialize};
 use std::fs;
 
@@ -51,31 +47,27 @@ impl Renderer for CompositionRenderer {
 
     fn render(
         &self,
-        composition: SegmentRef<Self::Element>,
+        composition: SegmentRef<CompositionRoot>,
         context: CompositionContext,
     ) -> Result<Vec<Segment>> {
+        let chords: [Chord; 4] = [
+            (C, maj).into(),
+            (F, maj).into(),
+            (G, maj).into(),
+            (C, maj).into(),
+        ];
+
         Ok(
-            // Repeat four chords over the composition -- one every two beats
+            // Repeat the four chords over the composition -- one every two beats
             Rhythm::from([2 * context.beat_length()])
                 .iter_over(composition.timing)
-                .zip(
-                    [Chord::I, Chord::IV, Chord::V, Chord::I]
-                        .into_iter()
-                        .cycle(),
-                )
-                .map(|(subdivision, chord)| chord.into_segment(subdivision.timing()))
+                .zip(chords.into_iter().cycle())
+                .map(|(subdivision, chord)| chord.over(subdivision.timing()))
                 .chain([
                     // Also include the new component, spanning the whole composition
-                    Part::instrument(PlayChords).into_segment(composition.timing),
-                    // And a Key for the composition -- used later
-                    Key {
-                        tonic: 0, /* C */
-                        scale: Scale::Major,
-                        mode: Default::default(),
-                    }
-                    .into_segment(composition.timing),
+                    Part::instrument(PlayChords).over(composition.timing),
                 ])
-                .collect::<Vec<_>>(),
+                .collect(),
         )
     }
 }
@@ -86,7 +78,7 @@ impl Renderer for PlayChordsRenderer {
 
     fn render(
         &self,
-        play_chords: SegmentRef<Self::Element>,
+        play_chords: SegmentRef<PlayChords>,
         context: CompositionContext,
     ) -> Result<Vec<Segment>> {
         // `CompositionContext` enables finding previously rendered elements
@@ -94,11 +86,6 @@ impl Renderer for PlayChordsRenderer {
             .find::<Chord>()
             .with_timing(Within, play_chords.timing)
             .require_all()?;
-        let key = context
-            .find::<Key>()
-            .with_timing(During, play_chords.timing)
-            .require()?
-            .element;
         // As well as random number generation
         let mut rng = context.rng();
 
@@ -106,16 +93,16 @@ impl Renderer for PlayChordsRenderer {
         let notes = chord_segments
             .iter()
             .flat_map(|chord| {
-                Notes::from(key.chord(chord.element))
-                    .in_range(60..72)
-                    .into_iter()
+                chord
+                    .element
+                    .iter_notes_in_range(Note::from((C, 4))..Note::from((C, 5)))
                     .map(|note|
                         // Add subtle nuance striking the notes with different velocities
-                        PlayNote { note, velocity: rng.gen_range(80..110) }
-                            .into_segment(chord.timing))
+                        note.play(rng.gen_range(80..110) /* velocity */)
+                            .over(chord.timing))
                     .collect::<Vec<_>>()
             })
-            .collect::<Vec<_>>();
+            .collect();
 
         Ok(notes)
     }
