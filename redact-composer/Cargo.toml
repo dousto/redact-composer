@@ -1,7 +1,7 @@
 [package]
 name = "redact-composer"
 description = "A library for building modular musical composers."
-version = "0.1.4"
+version = "0.1.5"
 repository = "https://github.com/dousto/redact-composer"
 authors = ["Doug Stoeckmann <dousto@gmail.com>"]
 keywords = ["compose", "music"]
@@ -11,11 +11,11 @@ license = "MIT"
 edition = "2021"
 
 [dependencies]
-redact-composer-core = { path = "../redact-composer-core", version = "0.1.2" }
+redact-composer-core = { path = "../redact-composer-core", version = "0.2.0" }
 
 redact-composer-derive = { optional = true, path = "../redact-composer-derive", version = "0.1.0" }
-redact-composer-musical = { optional = true, path = "../redact-composer-musical", version = "0.1.4" }
-redact-composer-midi = { optional = true, path = "../redact-composer-midi", version = "0.1.3" }
+redact-composer-musical = { optional = true, path = "../redact-composer-musical", version = "0.2.0" }
+redact-composer-midi = { optional = true, path = "../redact-composer-midi", version = "0.1.4" }
 
 [features]
 default = ["derive", "musical", "midi", "serde"]
