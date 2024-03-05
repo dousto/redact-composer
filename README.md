@@ -55,8 +55,7 @@ located at
 
 ### Building Blocks
 This example composer will use some library-provided elements ([`Chord`](crate::musical::elements::Chord),
-[`Key`](crate::musical::elements::Key), [`Part`](crate::elements::Part), [`PlayNote`](crate::elements::PlayNote)) and
-two new elements:
+[`Part`](crate::elements::Part), [`PlayNote`](crate::elements::PlayNote)) and two new elements:
 ```rust
 #[derive(Element, Serialize, Deserialize, Debug)]
 pub struct CompositionRoot;
@@ -76,26 +75,30 @@ then looks like:
 
 ```rust
 struct CompositionRenderer;
-
 impl Renderer for CompositionRenderer {
     type Element = CompositionRoot;
 
     fn render(
-        &self, composition: SegmentRef<Self::Element>, context: CompositionContext,
+        &self, composition: SegmentRef<CompositionRoot>, context: CompositionContext,
     ) -> Result<Vec<Segment>> {
+        let chords: [Chord; 4] = [
+            (C, maj).into(),
+            (F, maj).into(),
+            (G, maj).into(),
+            (C, maj).into(),
+        ];
+
         Ok(
-            // Repeat four chords over the composition -- one every two beats
-            Rhythm::from([2 * context.beat_length()]).iter_over(composition.timing)
-                .zip([Chord::I, Chord::IV, Chord::V, Chord::I].into_iter().cycle())
-                .map(|(subdivision, chord)| chord.into_segment(subdivision.timing()))
+            // Repeat the four chords over the composition -- one every two beats
+            Rhythm::from([2 * context.beat_length()])
+                .iter_over(composition.timing)
+                .zip(chords.into_iter().cycle())
+                .map(|(subdivision, chord)| chord.over(subdivision.timing()))
                 .chain([
                     // Also include the new component, spanning the whole composition
-                    Part::instrument(PlayChords).into_segment(composition.timing),
-                    // And a Key for the composition -- used later
-                    Key { tonic: 0, /* C */ scale: Scale::Major, mode: Default::default() }
-                        .into_segment(composition.timing)
+                    Part::instrument(PlayChords).over(composition.timing),
                 ])
-                .collect::<Vec<_>>(),
+                .collect(),
         )
     }
 }
@@ -105,9 +108,8 @@ impl Renderer for CompositionRenderer {
 > that notes generated within the wrapped element are to be played by a single instrument at a time.
 
 This [`Renderer`](crate::Renderer) takes a `CompositionRoot` element (via a [`SegmentRef`](crate::SegmentRef)) and generates several
-children including [`Chord`](crate::musical::elements::Chord) elements (with a [`Rhythm`](crate::musical::rhythm::Rhythm) of one every two beats over the composition), the
-newly defined `PlayChords` element, and a [`Key`](crate::musical::elements::Key) element (spanning the whole composition) which will be used later
-to determine which specific notes to play. These children are returned as [`Segment`](crate::Segment)s, which defines where they
+children including [`Chord`](crate::musical::elements::Chord) elements (with a [`Rhythm`](crate::musical::rhythm::Rhythm) of one every two beats over the composition), and
+newly defined `PlayChords` element. These children are returned as [`Segment`](crate::Segment)s, which defines where they
 are located in the composition's timeline.
 
 At this stage, the [`Chord`](crate::musical::elements::Chord) and `PlayChords` elements are just abstract concepts
@@ -120,29 +122,28 @@ impl Renderer for PlayChordsRenderer {
     type Element = PlayChords;
 
     fn render(
-        &self, play_chords: SegmentRef<Self::Element>, context: CompositionContext,
+        &self, play_chords: SegmentRef<PlayChords>, context: CompositionContext,
     ) -> Result<Vec<Segment>> {
         // `CompositionContext` enables finding previously rendered elements
         let chord_segments = context.find::<Chord>()
             .with_timing(Within, play_chords.timing)
             .require_all()?;
-        let key = context.find::<Key>()
-            .with_timing(During, play_chords.timing)
-            .require()?.element;
         // As well as random number generation
         let mut rng = context.rng();
 
         // Map Chord notes to PlayNote elements, forming a triad
-        let notes = chord_segments.iter().flat_map(|chord| {
-            Notes::from(key.chord(chord.element)).in_range(60..72).into_iter()
-                .map(|note|
-                    // Add subtle nuance striking the notes with different velocities
-                    PlayNote { note, velocity: rng.gen_range(80..110) }
-                        .into_segment(chord.timing)
-                )
-                .collect::<Vec<_>>()
-        })
-        .collect::<Vec<_>>();
+        let notes = chord_segments
+            .iter()
+            .flat_map(|chord| {
+                chord.element
+                    .iter_notes_in_range(Note::from((C, 4))..Note::from((C, 5)))
+                    .map(|note|
+                        // Add subtle nuance striking the notes with different velocities
+                        note.play(rng.gen_range(80..110) /* velocity */)
+                            .over(chord.timing))
+                    .collect::<Vec<_>>()
+            })
+            .collect();
 
         Ok(notes)
     }
@@ -150,10 +151,9 @@ impl Renderer for PlayChordsRenderer {
 ```
 
 Here, [`CompositionContext`](crate::render::context::CompositionContext) is used to reference the previously created
-[`Chord`](crate::musical::elements::Chord) and [`Key`](crate::musical::elements::Key) segments. Each
-[`Chord`](crate::musical::elements::Chord) is then mapped into notes within a specific octave using the
-[`Key`](crate::musical::elements::Key) and [`Notes`](crate::musical::Notes) utility. This results in three notes for
-each [`Chord`](crate::musical::elements::Chord) and returns them as [`PlayNote`](crate::elements::PlayNote) segments.
+[`Chord`](crate::musical::elements::Chord) segments. Then the [`Note`](crate::musical::elements::Note)s from each
+[`Chord`](crate::musical::elements::Chord) within an octave range are [`play`](crate::musical::Note::play)ed over the
+[`Chord`](crate::musical::elements::Chord) segment's timing.
 
 ### Creating the Composer
 In essence, a [`Composer`](crate::Composer) is just a set of [`Renderer`](crate::Renderer)s, and can be constructed with
