@@ -6,6 +6,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0](https://github.com/dousto/redact-composer/compare/redact-composer-core-v0.1.2...redact-composer-core-v0.2.0) - 2024-03-05
+
+### Added
+- Allow naming / unnaming Segments as chained calls
+
+### Other
+- Update renamed trait
+
 ## [0.1.2](https://github.com/dousto/redact-composer/compare/redact-composer-core-v0.1.1...redact-composer-core-v0.1.2) - 2024-01-17
 
 ### Other
