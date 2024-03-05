@@ -1,220 +1,196 @@
-use crate::elements::{Chord, Key, Mode, Scale};
-
-use super::Notes;
-
-#[test]
-fn note_ranges() {
-    assert_eq!(
-        Notes::from(vec![0, 1, 2, 9, 10, 11]).in_range(24..=38),
-        [24, 25, 26, 33, 34, 35, 36, 37, 38]
-    )
-}
-
-#[test]
-fn note_range_works_with_notes_outside_1_to_12_range() {
-    let notes = Notes::from(vec![0, 1, 2, 9, 10, 11]);
-    assert_eq!(
-        Notes::from(notes.in_range(24..=38)).in_range(24..=38),
-        [24, 25, 26, 33, 34, 35, 36, 37, 38]
-    );
-}
+use crate::NoteName::C;
+use crate::{Key, Mode, Note, NoteIterator, PitchClass, PitchClassCollection, Scale};
 
 #[test]
 fn middle_c_major_scale() {
     assert_eq!(
-        Notes::from(
-            Key {
-                tonic: 0,
-                scale: Scale::Major,
-                mode: Mode::Ionian
-            }
-            .scale()
-        )
-        .in_range(60..=72),
-        [60, 62, 64, 65, 67, 69, 71, 72]
+        Key {
+            tonic: C.into(),
+            scale: Scale::Major,
+            mode: Mode::default()
+        }
+        .notes_in_range(Note(60)..=Note(72)),
+        [
+            Note(60),
+            Note(62),
+            Note(64),
+            Note(65),
+            Note(67),
+            Note(69),
+            Note(71),
+            Note(72)
+        ]
     )
 }
 
 #[test]
 fn middle_c_minor_scale() {
     assert_eq!(
-        Notes::from(
-            Key {
-                tonic: 0,
-                scale: Scale::Minor,
-                mode: Mode::Ionian
-            }
-            .scale()
-        )
-        .in_range(60..=72),
-        [60, 62, 63, 65, 67, 69, 70, 72]
+        Key {
+            tonic: C.into(),
+            scale: Scale::Minor,
+            mode: Mode::default()
+        }
+        .notes_in_range(Note(60)..=Note(72)),
+        [
+            Note(60),
+            Note(62),
+            Note(63),
+            Note(65),
+            Note(67),
+            Note(69),
+            Note(70),
+            Note(72)
+        ]
     )
 }
 
 #[test]
 fn middle_c_natural_minor_scale() {
     assert_eq!(
-        Notes::from(
-            Key {
-                tonic: 0,
-                scale: Scale::NaturalMinor,
-                mode: Mode::Ionian
-            }
-            .scale()
-        )
-        .in_range(60..=72),
-        [60, 62, 63, 65, 67, 68, 70, 72]
+        Key {
+            tonic: C.into(),
+            scale: Scale::NaturalMinor,
+            mode: Mode::default()
+        }
+        .notes_in_range(Note(60)..=Note(72)),
+        [
+            Note(60),
+            Note(62),
+            Note(63),
+            Note(65),
+            Note(67),
+            Note(68),
+            Note(70),
+            Note(72)
+        ]
     )
 }
 
+// region: Scale notes tests
 #[test]
-fn chord_i_degrees() {
-    assert_eq!(Chord::I.degrees(), [0, 2, 4])
+fn key_notes_boundary_test() {
+    let tonics = vec![PitchClass(0), PitchClass(9), PitchClass(11)];
+    let scales = Scale::values();
+    let modes = vec![Mode::Ionian, Mode::Dorian, Mode::Aeolian, Mode::Locrian];
+    let lengths = [0, 1, 11, 12, 13, 23];
+    let offsets = [0, 1, 11, 12, 13, 23];
+
+    // let mut seq = 0_usize;
+    for tonic in tonics.clone() {
+        for scale in scales.clone() {
+            for mode in modes.clone() {
+                for length in lengths {
+                    for offset in offsets {
+                        let key = Key { tonic, scale, mode };
+                        let key_pitches = key.pitch_classes();
+
+                        let note_range = Note(offset)..Note(offset + length);
+                        let output = key.notes_in_range(note_range.clone());
+                        let out_of_key = output
+                            .iter()
+                            .filter(|n| !key_pitches.contains(&n.pitch_class()))
+                            .collect::<Vec<_>>();
+                        assert!(
+                            out_of_key.is_empty(),
+                            "`{:?}.notes_in_range({:?})` produced out of key notes.\nOutput: {:?}\nOut of key: {:?}",
+                            key, note_range, output, out_of_key
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+// endregion: Scale notes tests
+
+#[cfg(test)]
+mod interval_tests {
+    use crate::Interval as I;
+
+    #[test]
+    fn check_simple_interval() {
+        assert!(I(0).is_simple());
+        assert!(I(12).is_simple());
+        assert!(!I(13).is_simple());
+    }
+
+    #[test]
+    fn check_compound_interval() {
+        assert!(I(13).is_compound());
+        assert!(I(24).is_compound());
+        assert!(!I(12).is_compound());
+    }
+
+    #[test]
+    fn check_simple_inversions() {
+        assert_eq!(I::P1.inversion(), I::P8);
+        assert_eq!(I::P8.inversion(), I::P1);
+
+        assert_eq!(I::m2.inversion(), I::M7);
+        assert_eq!(I::M7.inversion(), I::m2);
+
+        assert_eq!(I::M2.inversion(), I::m7);
+        assert_eq!(I::m7.inversion(), I::M2);
+
+        assert_eq!(I::m3.inversion(), I::M6);
+        assert_eq!(I::M6.inversion(), I::m3);
+
+        assert_eq!(I::M3.inversion(), I::m6);
+        assert_eq!(I::m6.inversion(), I::M3);
+
+        assert_eq!(I::P4.inversion(), I::P5);
+        assert_eq!(I::P5.inversion(), I::P4);
+
+        assert_eq!(I::A4.inversion(), I::A4);
+    }
+
+    #[test]
+    fn check_compound_inversions() {
+        assert_eq!(I::m9.inversion(), I::M7);
+        assert_eq!(I::M9.inversion(), I::m7);
+        assert_eq!(I::m10.inversion(), I::M6);
+        assert_eq!(I::M10.inversion(), I::m6);
+        assert_eq!(I::P11.inversion(), I::P5);
+        assert_eq!(I::P12.inversion(), I::P4);
+        assert_eq!(I::m13.inversion(), I::M3);
+        assert_eq!(I::M13.inversion(), I::m3);
+    }
 }
 
-#[test]
-fn chord_ii_degrees() {
-    assert_eq!(Chord::II.degrees(), [1, 3, 5])
+#[cfg(test)]
+mod tests {
+    use crate::chord::ChordShape::maj;
+    use crate::Chord;
+    use crate::NoteName::*;
+    use crate::{Note, NoteIterator};
+
+    // #[test]
+    // fn test_scale_note_scaling() {
+    //     let test_range = 0..128;
+    //
+    //     let key = Key {
+    //         tonic: C.into(),
+    //         scale: Scale::Major,
+    //         mode: Default::default(),
+    //     };
+    //
+    //     let key_pitches = key.notes().raw().into_iter().map(|n| n % 12).collect::<Vec<_>>();
+    //     for subrange in test_range.step_by(7) {
+    //         assert!(
+    //             key.notes().in_range(subrange..(subrange+7)).into_iter()
+    //                 .all(|n| key_pitches.contains(&(n % 12)))
+    //         )
+    //     }
+    // }
+
+    #[test]
+    fn test_chord_scaling() {
+        let chord = Chord::from((F, maj));
+
+        assert_eq!(
+            chord.notes_in_range(Note::from((C, 3))..Note::from((C, 4))),
+            vec![Note::from((C, 3)), Note::from((F, 3)), Note::from((A, 3))]
+        )
+    }
 }
-
-#[test]
-fn chord_iii_degrees() {
-    assert_eq!(Chord::III.degrees(), [2, 4, 6])
-}
-
-#[test]
-fn chord_iv_degrees() {
-    assert_eq!(Chord::IV.degrees(), [3, 5, 0])
-}
-
-#[test]
-fn chord_v_degrees() {
-    assert_eq!(Chord::V.degrees(), [4, 6, 1])
-}
-
-#[test]
-fn chord_vi_degrees() {
-    assert_eq!(Chord::VI.degrees(), [5, 0, 2])
-}
-
-#[test]
-fn chord_vii_degrees() {
-    assert_eq!(Chord::VII.degrees(), [6, 1, 3])
-}
-
-// region: Chord to/from String conversion tests
-
-#[test]
-fn chord_i_to_string() {
-    assert_eq!(Chord::I.to_string(), Chord::I_STR)
-}
-
-#[test]
-fn chord_i_from_string() {
-    assert_eq!(Chord::from(Chord::I_STR), Chord::I)
-}
-
-#[test]
-fn chord_ii_to_string() {
-    assert_eq!(Chord::II.to_string(), Chord::II_STR)
-}
-
-#[test]
-fn chord_ii_from_string() {
-    assert_eq!(Chord::from(Chord::II_STR), Chord::II)
-}
-
-#[test]
-fn chord_iii_to_string() {
-    assert_eq!(Chord::III.to_string(), Chord::III_STR)
-}
-
-#[test]
-fn chord_iii_from_string() {
-    assert_eq!(Chord::from(Chord::III_STR), Chord::III)
-}
-
-#[test]
-fn chord_iv_to_string() {
-    assert_eq!(Chord::IV.to_string(), Chord::IV_STR)
-}
-
-#[test]
-fn chord_iv_from_string() {
-    assert_eq!(Chord::from(Chord::IV_STR), Chord::IV)
-}
-
-#[test]
-fn chord_v_to_string() {
-    assert_eq!(Chord::V.to_string(), Chord::V_STR)
-}
-
-#[test]
-fn chord_v_from_string() {
-    assert_eq!(Chord::from(Chord::V_STR), Chord::V)
-}
-
-#[test]
-fn chord_vi_to_string() {
-    assert_eq!(Chord::VI.to_string(), Chord::VI_STR)
-}
-
-#[test]
-fn chord_vi_from_string() {
-    assert_eq!(Chord::from(Chord::VI_STR), Chord::VI)
-}
-
-#[test]
-fn chord_vii_to_string() {
-    assert_eq!(Chord::VII.to_string(), Chord::VII_STR)
-}
-
-#[test]
-fn chord_vii_from_string() {
-    assert_eq!(Chord::from(Chord::VII_STR), Chord::VII)
-}
-
-// endregion: Chord to/from String conversion tests
-
-// region: Scale to/from String conversion tests
-#[test]
-fn major_to_string() {
-    assert_eq!(Scale::Major.to_string(), Scale::MAJOR_STR)
-}
-
-#[test]
-fn major_from_string() {
-    assert_eq!(Scale::from(Scale::MAJOR_STR), Scale::Major)
-}
-
-#[test]
-fn minor_to_string() {
-    assert_eq!(Scale::Minor.to_string(), Scale::MINOR_STR)
-}
-
-#[test]
-fn minor_from_string() {
-    assert_eq!(Scale::from(Scale::MINOR_STR), Scale::Minor)
-}
-
-#[test]
-fn natural_minor_to_string() {
-    assert_eq!(Scale::NaturalMinor.to_string(), Scale::NATURAL_MINOR_STR)
-}
-
-#[test]
-fn natural_minor_from_string() {
-    assert_eq!(Scale::from(Scale::NATURAL_MINOR_STR), Scale::NaturalMinor)
-}
-
-#[test]
-fn harmonic_minor_to_string() {
-    assert_eq!(Scale::HarmonicMinor.to_string(), Scale::HARMONIC_MINOR_STR)
-}
-
-#[test]
-fn harmonic_minor_from_string() {
-    assert_eq!(Scale::from(Scale::HARMONIC_MINOR_STR), Scale::HarmonicMinor)
-}
-
-// endregion String conversion tests
