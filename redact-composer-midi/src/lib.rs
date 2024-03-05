@@ -12,7 +12,7 @@ pub mod gm;
 
 use redact_composer_core::derive::Element;
 use redact_composer_core::render::{AdhocRenderer, RenderEngine, Renderer};
-use redact_composer_core::IntoCompositionSegment;
+use redact_composer_core::IntoSegment;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -41,9 +41,7 @@ impl DrumKit {
     /// Default [`DrumKit`] renderer. Simply converts it into a [`Program`].
     pub fn renderer() -> impl Renderer<Element = Self> {
         AdhocRenderer::<Self>::new(|segment, _| {
-            Ok(vec![
-                Program::from(segment.element).into_segment(segment.timing)
-            ])
+            Ok(vec![Program::from(segment.element).over(segment.timing)])
         })
     }
 }
