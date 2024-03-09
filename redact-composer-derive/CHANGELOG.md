@@ -6,8 +6,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.1](https://github.com/dousto/redact-composer/compare/redact-composer-derive-v0.1.0...redact-composer-derive-v0.1.1) - 2024-03-09
+## [0.1.0](https://github.com/dousto/redact-composer/compare/redact-composer-derive-v0.1.0...redact-composer-derive-v0.1.0) - 2024-01-16
 
 ### Other
-- Update readme with new changes to the example
-- Add cargo setup commands to README
+- release
