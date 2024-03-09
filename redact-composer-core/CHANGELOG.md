@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1](https://github.com/dousto/redact-composer/compare/redact-composer-core-v0.2.0...redact-composer-core-v0.2.1) - 2024-03-09
+
+### Other
+- updated the following local packages: redact-composer-derive
+
 ## [0.2.0](https://github.com/dousto/redact-composer/compare/redact-composer-core-v0.1.2...redact-composer-core-v0.2.0) - 2024-03-05
 
 ### Added
