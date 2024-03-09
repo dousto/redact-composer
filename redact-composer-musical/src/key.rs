@@ -122,8 +122,8 @@ impl Key {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Key, Mode, Note, NoteIterator, Scale};
     use crate::NoteName::C;
+    use crate::{Key, Mode, Note, NoteIterator, Scale};
 
     #[test]
     fn middle_c_major_scale() {
@@ -133,7 +133,7 @@ mod tests {
                 scale: Scale::Major,
                 mode: Mode::default()
             }
-                .notes_in_range(Note(60)..=Note(72)),
+            .notes_in_range(Note(60)..=Note(72)),
             [
                 Note(60),
                 Note(62),
@@ -155,7 +155,7 @@ mod tests {
                 scale: Scale::Minor,
                 mode: Mode::default()
             }
-                .notes_in_range(Note(60)..=Note(72)),
+            .notes_in_range(Note(60)..=Note(72)),
             [
                 Note(60),
                 Note(62),
@@ -177,7 +177,7 @@ mod tests {
                 scale: Scale::NaturalMinor,
                 mode: Mode::default()
             }
-                .notes_in_range(Note(60)..=Note(72)),
+            .notes_in_range(Note(60)..=Note(72)),
             [
                 Note(60),
                 Note(62),
@@ -199,7 +199,7 @@ mod tests {
                 scale: Scale::HarmonicMinor,
                 mode: Mode::default()
             }
-                .notes_in_range(Note(60)..=Note(72)),
+            .notes_in_range(Note(60)..=Note(72)),
             [
                 Note(60),
                 Note(62),

@@ -175,10 +175,12 @@ where
     }
 }
 
-
 #[cfg(test)]
 mod tests {
-    use crate::{Chord, ChordShape, Interval, IntervalCollection, Key, Mode, Note, NoteIterator, PitchClass, PitchClassCollection, Scale};
+    use crate::{
+        Chord, ChordShape, Interval, IntervalCollection, Key, Mode, Note, NoteIterator, PitchClass,
+        PitchClassCollection, Scale,
+    };
 
     #[test]
     fn key_notes_boundary_test() {
@@ -219,30 +221,46 @@ mod tests {
     fn chord_note_iter_smoke_test() {
         let roots = [PitchClass(0), PitchClass(7), PitchClass(11)];
         let chord_shapes = ChordShape::all();
-        let range_lens = (0..=36).into_iter().collect::<Vec<_>>();
-        let range_offsets = (0..=12).into_iter().collect::<Vec<_>>();
+        let range_lens = (0..=36).collect::<Vec<_>>();
+        let range_offsets = (0..=12).collect::<Vec<_>>();
 
-        for root in roots.clone() {
+        for root in roots {
             for shape in chord_shapes.clone() {
                 for range_len in range_lens.clone() {
-                    for range_offest in range_offsets.clone() {
-                        let first_range_note = Note(range_offest);
+                    for range_offset in range_offsets.clone() {
+                        let first_range_note = Note(range_offset);
                         let note_range = first_range_note..(first_range_note + Interval(range_len));
                         let chord = Chord::from((root, shape));
                         let chord_pitches = chord.pitch_classes();
                         let chord_notes = chord.notes_in_range(note_range.clone());
 
-                        if note_range.clone().contains(&chord.root.at_or_above(&first_range_note)) {
-                            assert!(chord_notes.contains(&chord.root.at_or_above(&first_range_note)), "{:?} could contain chord root of {:?}, but it doesn't.", note_range, chord);
+                        if note_range
+                            .clone()
+                            .contains(&chord.root.at_or_above(&first_range_note))
+                        {
+                            assert!(
+                                chord_notes.contains(&chord.root.at_or_above(&first_range_note)),
+                                "{:?} could contain chord root of {:?}, but it doesn't.",
+                                note_range,
+                                chord
+                            );
                         }
 
-                        assert!(chord_notes.iter().all(|n| chord_pitches.contains(&n.pitch_class())), "{:?}.notes_in_range({:?}) produced notes not within the chord.", chord, note_range);
+                        assert!(
+                            chord_notes
+                                .iter()
+                                .all(|n| chord_pitches.contains(&n.pitch_class())),
+                            "{:?}.notes_in_range({:?}) produced notes not within the chord.",
+                            chord,
+                            note_range
+                        );
 
-                        let note_count_lower_bound = range_len as usize / (
-                            first_range_note.pitch_class().interval_to(&chord.root)
+                        let note_count_lower_bound = range_len as usize
+                            / (first_range_note.pitch_class().interval_to(&chord.root)
                                 + *chord.intervals().last().unwrap()
-                                + chord.intervals().last().unwrap().inversion()
-                        ).0 as usize * chord.intervals().len();
+                                + chord.intervals().last().unwrap().inversion())
+                            .0 as usize
+                            * chord.intervals().len();
 
                         assert!(chord_notes.len() >= note_count_lower_bound,
                             "{:?} has room for at least {:?} notes of {:?}, but only {:?} were produced.",
@@ -251,8 +269,7 @@ mod tests {
                         if note_count_lower_bound >= chord.intervals().len() {
                             assert!(
                                 chord_pitches.iter().all(|p| {
-                                    chord_notes.iter().find(|n| n.pitch_class() == *p)
-                                        .is_some()
+                                    chord_notes.iter().any(|n| n.pitch_class() == *p)
                                 }),
                                 "{:?} has room for all notes of {:?}, but they weren't all produced.", note_range, chord);
                         }
