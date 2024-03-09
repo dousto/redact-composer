@@ -11,9 +11,9 @@ license = "MIT"
 edition = "2021"
 
 [dependencies]
-redact-composer-core = { path = "../redact-composer-core", version = "0.2.1" }
+redact-composer-core = { path = "../redact-composer-core", version = "0.2.0" }
 
-redact-composer-derive = { optional = true, path = "../redact-composer-derive", version = "0.1.1" }
+redact-composer-derive = { optional = true, path = "../redact-composer-derive", version = "0.1.0" }
 redact-composer-musical = { optional = true, path = "../redact-composer-musical", version = "0.2.1" }
 redact-composer-midi = { optional = true, path = "../redact-composer-midi", version = "0.1.4" }
 
