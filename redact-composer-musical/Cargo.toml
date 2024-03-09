@@ -12,7 +12,7 @@ edition = "2021"
 [dependencies]
 rand = { workspace = true }
 
-redact-composer-core = { optional = true, path = "../redact-composer-core", version = "0.2.1" }
+redact-composer-core = { optional = true, path = "../redact-composer-core", version = "0.2.0" }
 serde = { optional = true, workspace = true }
 typetag = { optional = true, workspace = true }
 
