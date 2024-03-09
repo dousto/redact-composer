@@ -11,7 +11,7 @@ license = "MIT"
 edition = "2021"
 
 [dependencies]
-redact-composer-core = { path = "../redact-composer-core", version = "0.2.0" }
+redact-composer-core = { path = "../redact-composer-core", version = "0.2.1" }
 midly = { version = "0.5.3", default-features = false, features = ["std"] }
 num = { version = "0.4.1", features = [] }
 num-derive = { version = "0.4.1", features = [] }
