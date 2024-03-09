@@ -102,25 +102,37 @@ impl<R: RangeBounds<Note>> From<(PitchClass, Vec<Interval>, R)> for NoteIter<R> 
                 Bound::Unbounded => Note(0),
             };
 
-            let (first_note, interval_idx_offset) =
-                if first_range_note.pitch_class() == start_pitch_class {
-                    (Some(first_range_note), 0)
-                } else {
-                    let mut start_interval_idx = steps.len() - 1;
-                    let mut try_note = (start_pitch_class - steps[start_interval_idx])
-                        .at_or_above(&first_range_note);
-                    while !note_range.contains(&try_note) && start_interval_idx > 0 {
-                        start_interval_idx -= 1;
-                        try_note = (try_note.pitch_class() - steps[start_interval_idx])
-                            .at_or_above(&first_range_note);
-                    }
+            // Find the first position within the note_range where the interval pattern can begin
+            // This will align the pattern such that the first pitch is as early as possible within the note_range
+            let (first_note, interval_idx_offset) = {
+                let mut interval_step_idx = steps.len() - 1;
+                let mut starting_pitch = start_pitch_class;
+                let mut interval_offset = Interval::P1;
+                let mut closest_starting_distance =
+                    first_range_note.pitch_class().interval_to(&starting_pitch);
 
-                    if note_range.contains(&try_note) {
-                        (Some(try_note), start_interval_idx)
-                    } else {
-                        (None, start_interval_idx)
-                    }
-                };
+                // Walk backwards through the interval steps (up to an octave, exclusive) to find any pitches from the
+                // tail end of the interval pattern that will fit within the note_range
+                while interval_step_idx > 0
+                    && first_range_note.pitch_class().interval_to(
+                        &(starting_pitch + steps[interval_step_idx].inversion().to_simple()),
+                    ) < closest_starting_distance
+                    && interval_offset + steps[interval_step_idx] < Interval::Octave
+                {
+                    starting_pitch += steps[interval_step_idx].inversion().to_simple();
+                    interval_offset += steps[interval_step_idx];
+                    closest_starting_distance =
+                        first_range_note.pitch_class().interval_to(&starting_pitch);
+                    interval_step_idx -= 1;
+                }
+
+                let starting_note = starting_pitch.at_or_above(&first_range_note);
+                if note_range.contains(&starting_note) {
+                    (Some(starting_note), (interval_step_idx + 1) % steps.len())
+                } else {
+                    (None, 0)
+                }
+            };
 
             NoteIter {
                 curr: first_note,
@@ -159,6 +171,94 @@ where
             return_note
         } else {
             None
+        }
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use crate::{Chord, ChordShape, Interval, IntervalCollection, Key, Mode, Note, NoteIterator, PitchClass, PitchClassCollection, Scale};
+
+    #[test]
+    fn key_notes_boundary_test() {
+        let tonics = vec![PitchClass(0), PitchClass(9), PitchClass(11)];
+        let scales = Scale::values();
+        let modes = vec![Mode::Ionian, Mode::Dorian, Mode::Aeolian, Mode::Locrian];
+        let lengths = [0, 1, 11, 12, 13, 23];
+        let offsets = [0, 1, 11, 12, 13, 23];
+
+        // let mut seq = 0_usize;
+        for tonic in tonics.clone() {
+            for scale in scales.clone() {
+                for mode in modes.clone() {
+                    for length in lengths {
+                        for offset in offsets {
+                            let key = Key { tonic, scale, mode };
+                            let key_pitches = key.pitch_classes();
+
+                            let note_range = Note(offset)..Note(offset + length);
+                            let output = key.notes_in_range(note_range.clone());
+                            let out_of_key = output
+                                .iter()
+                                .filter(|n| !key_pitches.contains(&n.pitch_class()))
+                                .collect::<Vec<_>>();
+                            assert!(
+                                out_of_key.is_empty(),
+                                "`{:?}.notes_in_range({:?})` produced out of key notes.\nOutput: {:?}\nOut of key: {:?}",
+                                key, note_range, output, out_of_key
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn chord_note_iter_smoke_test() {
+        let roots = [PitchClass(0), PitchClass(7), PitchClass(11)];
+        let chord_shapes = ChordShape::all();
+        let range_lens = (0..=36).into_iter().collect::<Vec<_>>();
+        let range_offsets = (0..=12).into_iter().collect::<Vec<_>>();
+
+        for root in roots.clone() {
+            for shape in chord_shapes.clone() {
+                for range_len in range_lens.clone() {
+                    for range_offest in range_offsets.clone() {
+                        let first_range_note = Note(range_offest);
+                        let note_range = first_range_note..(first_range_note + Interval(range_len));
+                        let chord = Chord::from((root, shape));
+                        let chord_pitches = chord.pitch_classes();
+                        let chord_notes = chord.notes_in_range(note_range.clone());
+
+                        if note_range.clone().contains(&chord.root.at_or_above(&first_range_note)) {
+                            assert!(chord_notes.contains(&chord.root.at_or_above(&first_range_note)), "{:?} could contain chord root of {:?}, but it doesn't.", note_range, chord);
+                        }
+
+                        assert!(chord_notes.iter().all(|n| chord_pitches.contains(&n.pitch_class())), "{:?}.notes_in_range({:?}) produced notes not within the chord.", chord, note_range);
+
+                        let note_count_lower_bound = range_len as usize / (
+                            first_range_note.pitch_class().interval_to(&chord.root)
+                                + *chord.intervals().last().unwrap()
+                                + chord.intervals().last().unwrap().inversion()
+                        ).0 as usize * chord.intervals().len();
+
+                        assert!(chord_notes.len() >= note_count_lower_bound,
+                            "{:?} has room for at least {:?} notes of {:?}, but only {:?} were produced.",
+                            note_range, note_count_lower_bound, chord, chord_notes.len());
+
+                        if note_count_lower_bound >= chord.intervals().len() {
+                            assert!(
+                                chord_pitches.iter().all(|p| {
+                                    chord_notes.iter().find(|n| n.pitch_class() == *p)
+                                        .is_some()
+                                }),
+                                "{:?} has room for all notes of {:?}, but they weren't all produced.", note_range, chord);
+                        }
+                    }
+                }
+            }
         }
     }
 }

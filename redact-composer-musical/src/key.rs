@@ -119,3 +119,97 @@ impl Key {
         self.tonic + self.intervals()[degree.into() as usize]
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{Key, Mode, Note, NoteIterator, Scale};
+    use crate::NoteName::C;
+
+    #[test]
+    fn middle_c_major_scale() {
+        assert_eq!(
+            Key {
+                tonic: C.into(),
+                scale: Scale::Major,
+                mode: Mode::default()
+            }
+                .notes_in_range(Note(60)..=Note(72)),
+            [
+                Note(60),
+                Note(62),
+                Note(64),
+                Note(65),
+                Note(67),
+                Note(69),
+                Note(71),
+                Note(72)
+            ]
+        )
+    }
+
+    #[test]
+    fn middle_c_minor_scale() {
+        assert_eq!(
+            Key {
+                tonic: C.into(),
+                scale: Scale::Minor,
+                mode: Mode::default()
+            }
+                .notes_in_range(Note(60)..=Note(72)),
+            [
+                Note(60),
+                Note(62),
+                Note(63),
+                Note(65),
+                Note(67),
+                Note(69),
+                Note(70),
+                Note(72)
+            ]
+        )
+    }
+
+    #[test]
+    fn middle_c_natural_minor_scale() {
+        assert_eq!(
+            Key {
+                tonic: C.into(),
+                scale: Scale::NaturalMinor,
+                mode: Mode::default()
+            }
+                .notes_in_range(Note(60)..=Note(72)),
+            [
+                Note(60),
+                Note(62),
+                Note(63),
+                Note(65),
+                Note(67),
+                Note(68),
+                Note(70),
+                Note(72)
+            ]
+        )
+    }
+
+    #[test]
+    fn middle_c_harmonic_minor_scale() {
+        assert_eq!(
+            Key {
+                tonic: C.into(),
+                scale: Scale::HarmonicMinor,
+                mode: Mode::default()
+            }
+                .notes_in_range(Note(60)..=Note(72)),
+            [
+                Note(60),
+                Note(62),
+                Note(63),
+                Note(65),
+                Note(67),
+                Note(68),
+                Note(71),
+                Note(72)
+            ]
+        )
+    }
+}

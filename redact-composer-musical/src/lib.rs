@@ -25,9 +25,6 @@ pub use key::*;
 mod scale;
 pub use scale::*;
 
-#[cfg(test)]
-mod test;
-
 /// Types implementing [`Element`](redact_composer_core::Element).
 #[cfg(feature = "redact-composer")]
 pub mod elements {
