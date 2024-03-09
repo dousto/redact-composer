@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.5](https://github.com/dousto/redact-composer/compare/redact-composer-midi-v0.1.4...redact-composer-midi-v0.1.5) - 2024-03-09
+
+### Other
+- Add details on relevant `Element` types used during MIDI conversion. ([#36](https://github.com/dousto/redact-composer/pull/36))
+
 ## [0.1.4](https://github.com/dousto/redact-composer/compare/redact-composer-midi-v0.1.3...redact-composer-midi-v0.1.4) - 2024-03-05
 
 ### Other
