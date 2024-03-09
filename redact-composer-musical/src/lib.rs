@@ -25,9 +25,6 @@ pub use key::*;
 mod scale;
 pub use scale::*;
 
-#[cfg(test)]
-mod test;
-
 /// Types implementing [`Element`](redact_composer_core::Element).
 #[cfg(feature = "redact-composer")]
 pub mod elements {
@@ -60,7 +57,7 @@ where
             .fold(
                 (vec![Interval::P1], Interval::P1),
                 |(mut intervals, mut last), step| {
-                    last = last + step;
+                    last += step;
                     intervals.push(last);
 
                     (intervals, last)

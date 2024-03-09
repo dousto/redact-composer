@@ -1,5 +1,5 @@
 use std::iter::Sum;
-use std::ops::Add;
+use std::ops::{Add, AddAssign};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -133,8 +133,68 @@ impl Add for Interval {
     }
 }
 
+impl AddAssign for Interval {
+    fn add_assign(&mut self, rhs: Self) {
+        self.0 += rhs.0;
+    }
+}
+
 impl Sum for Interval {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
         iter.fold(Interval::default(), |i1, i2| i1 + i2)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::Interval as I;
+
+    #[test]
+    fn check_simple_interval() {
+        assert!(I(0).is_simple());
+        assert!(I(12).is_simple());
+        assert!(!I(13).is_simple());
+    }
+
+    #[test]
+    fn check_compound_interval() {
+        assert!(I(13).is_compound());
+        assert!(I(24).is_compound());
+        assert!(!I(12).is_compound());
+    }
+
+    #[test]
+    fn check_simple_inversions() {
+        assert_eq!(I::P1.inversion(), I::P8);
+        assert_eq!(I::P8.inversion(), I::P1);
+
+        assert_eq!(I::m2.inversion(), I::M7);
+        assert_eq!(I::M7.inversion(), I::m2);
+
+        assert_eq!(I::M2.inversion(), I::m7);
+        assert_eq!(I::m7.inversion(), I::M2);
+
+        assert_eq!(I::m3.inversion(), I::M6);
+        assert_eq!(I::M6.inversion(), I::m3);
+
+        assert_eq!(I::M3.inversion(), I::m6);
+        assert_eq!(I::m6.inversion(), I::M3);
+
+        assert_eq!(I::P4.inversion(), I::P5);
+        assert_eq!(I::P5.inversion(), I::P4);
+
+        assert_eq!(I::A4.inversion(), I::A4);
+    }
+
+    #[test]
+    fn check_compound_inversions() {
+        assert_eq!(I::m9.inversion(), I::M7);
+        assert_eq!(I::M9.inversion(), I::m7);
+        assert_eq!(I::m10.inversion(), I::M6);
+        assert_eq!(I::M10.inversion(), I::m6);
+        assert_eq!(I::P11.inversion(), I::P5);
+        assert_eq!(I::P12.inversion(), I::P4);
+        assert_eq!(I::m13.inversion(), I::M3);
+        assert_eq!(I::M13.inversion(), I::m3);
     }
 }
