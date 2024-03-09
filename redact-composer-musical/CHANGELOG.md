@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1](https://github.com/dousto/redact-composer/compare/redact-composer-musical-v0.2.0...redact-composer-musical-v0.2.1) - 2024-03-09
+
+### Fixed
+- Fixed bug in note iteration w/ updated and reorganized tests ([#33](https://github.com/dousto/redact-composer/pull/33))
+
 ## [0.2.0](https://github.com/dousto/redact-composer/compare/redact-composer-musical-v0.1.4...redact-composer-musical-v0.2.0) - 2024-03-05
 
 ### Added
