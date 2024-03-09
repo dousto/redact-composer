@@ -17,10 +17,31 @@ use redact_composer_core::{
 };
 use std::{cmp::Ordering, collections::HashSet};
 
+// Doc imports
+#[allow(unused_imports)]
+use redact_composer_core::Segment;
+
 #[cfg(test)]
 mod test;
 
 /// Converter for [`Composition`] -> MIDI format.
+///
+/// The following [`Composition`] tree elements are relevant during MIDI conversion:
+/// * [`Part`]
+/// > Represents a MIDI channel. Descendent channel-related elements of a [`Part`] are all associated with this channel.
+/// > [`PartType::Percussion`] have a reserved channel (9), and [`PartType::Instrument`] are assigned any other channel
+/// > in `0..=15`.
+/// * [`Program`]
+/// > Sends a [`MidiMessage::ProgramChange`] to its ancestor [`Part`]'s assigned channel. There can be multiple within a
+/// > single [`Part`]. For [`Program`]s' with overlapping [`Timing`]s, the lower tree-depth will
+/// > override the higher.
+/// * [`PlayNote`]
+/// > Sends a [`MidiMessage::NoteOn`]/[`MidiMessage::NoteOff`] pair to its [`Part`]'s channel, at the start/end of its
+/// > [`Segment`]'s [`Timing`] respectively.
+/// * [`Tempo`]
+/// > Sends a [`MetaMessage::Tempo`] event, changing the tempo for the duration of its [`Segment`]. Can be located
+/// > anywhere in a [`Composition`] tree (not constrained to individual [`Part`]s). For [`Tempo`]s with overlapping
+/// > [`Timing`]s, the lower tree-depth will override the higher.
 #[allow(missing_debug_implementations)]
 pub struct MidiConverter;
 
