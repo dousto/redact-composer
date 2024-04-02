@@ -62,8 +62,7 @@ impl From<(NoteName, i8)> for Note {
     /// ```
     /// use redact_composer_musical::{Note, NoteName::C};
     ///
-    /// let c3 = Note::from((C, 4));
-    /// assert_eq!(c3, Note(60));
+    /// assert_eq!(Note::from((C, 4)), Note(60));
     /// ```
     fn from(value: (NoteName, i8)) -> Self {
         Note::from((PitchClass::from(value.0), value.1))
@@ -132,6 +131,26 @@ impl PartialEq<PitchClass> for Note {
     /// ```
     fn eq(&self, other: &PitchClass) -> bool {
         &self.pitch_class() == other
+    }
+}
+
+impl PartialEq<Note> for (NoteName, i8) {
+    /// ```
+    /// use redact_composer_musical::{Note, NoteName::*};
+    /// assert_eq!((C, 4), Note(60));
+    /// ```
+    fn eq(&self, other: &Note) -> bool {
+        Note::from(*self).eq(other)
+    }
+}
+
+impl PartialEq<(NoteName, i8)> for Note {
+    /// ```
+    /// use redact_composer_musical::{Note, NoteName::*};
+    /// assert_eq!(Note(60), (C, 4));
+    /// ```
+    fn eq(&self, other: &(NoteName, i8)) -> bool {
+        self.eq(&Note::from(*other))
     }
 }
 
