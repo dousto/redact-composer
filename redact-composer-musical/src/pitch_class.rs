@@ -1,4 +1,4 @@
-use crate::{Interval, Note, NoteIter, NoteIterator, NoteName};
+use crate::{Interval, Note, NoteIter, NoteIterator, NoteName, PitchClassCollection};
 use std::ops::{Add, AddAssign, RangeBounds, Sub, SubAssign};
 
 #[cfg(feature = "serde")]
@@ -144,6 +144,12 @@ impl PitchClass {
 impl NoteIterator for PitchClass {
     fn iter_notes_in_range<R: RangeBounds<Note>>(&self, note_range: R) -> NoteIter<R> {
         NoteIter::from((*self, vec![Interval::P1], note_range))
+    }
+}
+
+impl PitchClassCollection for PitchClass {
+    fn pitch_classes(&self) -> Vec<PitchClass> {
+        vec![*self]
     }
 }
 
