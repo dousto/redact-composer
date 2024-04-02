@@ -184,19 +184,19 @@ mod tests {
 
     #[test]
     fn key_notes_boundary_test() {
-        let tonics = vec![PitchClass(0), PitchClass(9), PitchClass(11)];
+        let roots = vec![PitchClass(0), PitchClass(9), PitchClass(11)];
         let scales = Scale::values();
         let modes = vec![Mode::Ionian, Mode::Dorian, Mode::Aeolian, Mode::Locrian];
         let lengths = [0, 1, 11, 12, 13, 23];
         let offsets = [0, 1, 11, 12, 13, 23];
 
         // let mut seq = 0_usize;
-        for tonic in tonics.clone() {
+        for root in roots.clone() {
             for scale in scales.clone() {
                 for mode in modes.clone() {
                     for length in lengths {
                         for offset in offsets {
-                            let key = Key { tonic, scale, mode };
+                            let key = Key::from((root, scale, mode));
                             let key_pitches = key.pitch_classes();
 
                             let note_range = Note(offset)..Note(offset + length);
