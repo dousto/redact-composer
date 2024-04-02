@@ -12,22 +12,18 @@ use crate::{
 
 /// Describes a chord using a root [`PitchClass`], and [`ChordShape`].
 /// ```
-/// # use redact_composer_musical::{Chord, ChordShape};
-/// # use redact_composer_musical::PitchClassCollection;
-/// use redact_composer_musical::{NoteName::C, ChordShape::maj7, Note};
-/// use redact_composer_musical::NoteName::{B, E, G};
+/// use redact_composer_musical::{Chord, ChordShape::maj7, PitchClassCollection, NoteName::*};
 ///
-/// let c_major_7: Chord = (C, maj7).into();
-/// assert_eq!(c_major_7.pitch_classes(), vec![C, E, G, B]);
+/// assert_eq!(Chord::from((C, maj7)).pitch_classes(), [C, E, G, B]);
 /// ```
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "redact-composer", derive(Element))]
 pub struct Chord {
     /// The chord's root pitch.
-    pub root: PitchClass,
+    pub(crate) root: PitchClass,
     /// The chord's type (e.g. maj, min, etc..)
-    pub shape: ChordShape,
+    pub(crate) shape: ChordShape,
 }
 
 impl NoteIterator for Chord {
@@ -73,7 +69,31 @@ impl Chord {
 
     /// Checks if this chord contains notes exclusively from a particular key.
     pub fn is_in_key(&self, key: &Key) -> bool {
-        key.contains_chord(self)
+        key.contains(self)
+    }
+
+    /// Returns the root [`PitchClass`] of this chord.
+    pub fn root(&self) -> PitchClass {
+        self.root
+    }
+
+    /// Returns the [`ChordShape`] of this chord. (e.g. maj, min...)
+    pub fn shape(&self) -> ChordShape {
+        self.shape
+    }
+
+    /// Checks if all [`PitchClass`]s from a collection belong to this [`Chord`].
+    /// ```
+    /// use redact_composer_musical::{Chord, ChordShape::maj, NoteName::*};
+    ///
+    /// assert!(Chord::from((C, maj)).contains(&[C, E, G]));
+    /// ```
+    pub fn contains<P: PitchClassCollection>(&self, pitches: &P) -> bool {
+        let chord_pitches = self.pitch_classes();
+        pitches
+            .pitch_classes()
+            .iter()
+            .all(|pitch| chord_pitches.contains(pitch))
     }
 }
 
