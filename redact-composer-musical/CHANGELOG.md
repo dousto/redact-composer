@@ -6,6 +6,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0](https://github.com/dousto/redact-composer/compare/redact-composer-musical-v0.2.1...redact-composer-musical-v0.3.0) - 2024-04-02
+
+### Added
+- Add PartialEq impls for `Note` <=> `(NoteName, i8)` for notational convenience.
+- Add methods to identify `Key` note names, following convention of using each letter exactly once.
+- Privatize `Key` fields, with alternative constructor methods. Add `NoteName` support.
+- Add PitchClassCollection impl for PitchClass
+- Add blanket implementation of PitchClassCollection for iterables of Into<PitchClass> types.
+
+### Other
+- Rename 'tonic' to 'root'
+- Rename Minor => NaturalMinor (w/ interval bugfix); Add MelodicMinor scale pattern
+
 ## [0.2.1](https://github.com/dousto/redact-composer/compare/redact-composer-musical-v0.2.0...redact-composer-musical-v0.2.1) - 2024-03-09
 
 ### Fixed
