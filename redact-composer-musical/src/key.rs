@@ -221,21 +221,21 @@ impl Key {
 #[cfg(test)]
 mod tests {
     use crate::NoteName::C;
-    use crate::{Key, Note, NoteIterator, Scale::*};
+    use crate::{Key, Note, NoteIterator, NoteName::*, Scale::*};
 
     #[test]
     fn middle_c_major_scale() {
         assert_eq!(
             Key::from((C, Major)).notes_in_range(Note(60)..=Note(72)),
             [
-                Note(60),
-                Note(62),
-                Note(64),
-                Note(65),
-                Note(67),
-                Note(69),
-                Note(71),
-                Note(72)
+                (C, 4),
+                (D, 4),
+                (E, 4),
+                (F, 4),
+                (G, 4),
+                (A, 4),
+                (B, 4),
+                (C, 5)
             ]
         )
     }
@@ -245,14 +245,14 @@ mod tests {
         assert_eq!(
             Key::from((C, NaturalMinor)).notes_in_range(Note(60)..=Note(72)),
             [
-                Note(60),
-                Note(62),
-                Note(63),
-                Note(65),
-                Note(67),
-                Note(68),
-                Note(70),
-                Note(72)
+                (C, 4),
+                (D, 4),
+                (Eb, 4),
+                (F, 4),
+                (G, 4),
+                (Ab, 4),
+                (Bb, 4),
+                (C, 5)
             ]
         )
     }
@@ -260,16 +260,16 @@ mod tests {
     #[test]
     fn middle_c_melodic_minor_scale() {
         assert_eq!(
-            Key::from((C, NaturalMinor)).notes_in_range(Note(60)..=Note(72)),
+            Key::from((C, MelodicMinor)).notes_in_range(C.in_octave(4)..=C.in_octave(5)),
             [
-                Note(60),
-                Note(62),
-                Note(63),
-                Note(65),
-                Note(67),
-                Note(68),
-                Note(70),
-                Note(72)
+                (C, 4),
+                (D, 4),
+                (Eb, 4),
+                (F, 4),
+                (G, 4),
+                (A, 4),
+                (B, 4),
+                (C, 5)
             ]
         )
     }
@@ -279,14 +279,14 @@ mod tests {
         assert_eq!(
             Key::from((C, HarmonicMinor)).notes_in_range(Note(60)..=Note(72)),
             [
-                Note(60),
-                Note(62),
-                Note(63),
-                Note(65),
-                Note(67),
-                Note(68),
-                Note(71),
-                Note(72)
+                (C, 4),
+                (D, 4),
+                (Eb, 4),
+                (F, 4),
+                (G, 4),
+                (Ab, 4),
+                (B, 4),
+                (C, 5)
             ]
         )
     }
