@@ -78,3 +78,9 @@ pub trait PitchClassCollection {
     /// Returns this type's pitches.
     fn pitch_classes(&self) -> Vec<PitchClass>;
 }
+
+impl<P: Into<PitchClass> + Copy, I: IntoIterator<Item = P> + Clone> PitchClassCollection for I {
+    fn pitch_classes(&self) -> Vec<PitchClass> {
+        self.clone().into_iter().map(|p| p.into()).collect()
+    }
+}
