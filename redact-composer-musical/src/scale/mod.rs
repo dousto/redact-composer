@@ -29,18 +29,18 @@ pub enum Scale {
     /// # use redact_composer_musical::Scale;
     /// # use redact_composer_musical::{Interval, IntervalStepSequence};
     /// let (w, h) = (Interval(2), Interval(1)); // w = Whole-step, h = Half-step
-    /// assert_eq!(Scale::Minor.interval_steps(), vec![w, h, w, w, w, h, w]);
-    /// assert_eq!(Scale::Minor.interval_steps().into_iter().sum::<Interval>(), Interval::Octave);
-    /// ```
-    Minor,
-    /// ```
-    /// # use redact_composer_musical::Scale;
-    /// # use redact_composer_musical::{Interval, IntervalStepSequence};
-    /// let (w, h) = (Interval(2), Interval(1)); // w = Whole-step, h = Half-step
     /// assert_eq!(Scale::NaturalMinor.interval_steps(), vec![w, h, w, w, h, w, w]);
     /// assert_eq!(Scale::NaturalMinor.interval_steps().into_iter().sum::<Interval>(), Interval::Octave);
     /// ```
     NaturalMinor,
+    /// ```
+    /// # use redact_composer_musical::Scale;
+    /// # use redact_composer_musical::{Interval, IntervalStepSequence};
+    /// let (w, h) = (Interval(2), Interval(1)); // w = Whole-step, h = Half-step
+    /// assert_eq!(Scale::MelodicMinor.interval_steps(), vec![w, h, w, w, w, w, h]);
+    /// assert_eq!(Scale::MelodicMinor.interval_steps().into_iter().sum::<Interval>(), Interval::Octave);
+    /// ```
+    MelodicMinor,
     /// ```
     /// # use redact_composer_musical::Scale;
     /// # use redact_composer_musical::{Interval, IntervalStepSequence};
@@ -57,8 +57,8 @@ impl IntervalStepSequence for Scale {
 
         match self {
             Scale::Major => vec![w, w, h, w, w, w, h],
-            Scale::Minor => vec![w, h, w, w, w, h, w],
             Scale::NaturalMinor => vec![w, h, w, w, h, w, w],
+            Scale::MelodicMinor => vec![w, h, w, w, w, w, h],
             Scale::HarmonicMinor => vec![w, h, w, w, h, w + h, h],
         }
     }
@@ -69,8 +69,8 @@ impl Scale {
     pub fn values() -> Vec<Scale> {
         vec![
             Self::Major,
-            Self::Minor,
             Self::NaturalMinor,
+            Self::MelodicMinor,
             Self::HarmonicMinor,
         ]
     }
