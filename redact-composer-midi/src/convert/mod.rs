@@ -49,6 +49,7 @@ impl MidiConverter {
     /// Converts [`Composition`]s into MIDI format using the [`midly`] crate.
     pub fn convert(composition: &Composition) -> Smf {
         info!("Converting to MIDI.");
+        let start_instant = std::time::Instant::now();
         let track_subtrees: Vec<&Node<RenderSegment>> = composition
             .tree
             .iter()
@@ -66,12 +67,14 @@ impl MidiConverter {
             );
         }
 
+        let mut global_events_added = false;
         let tracks: Vec<Vec<TrackEvent>> = track_subtrees
             .into_iter()
             .zip(channel_assignments.iter())
             .filter_map(|(node, opt_ch)| opt_ch.map(|ch| (node, ch)))
             .map(|(subtree_root, channel)| {
-                let initial_events = if channel == 0 {
+                let initial_events = if !global_events_added {
+                    global_events_added = true;
                     Some(Self::extract_tempo_events(&composition.tree))
                 } else {
                     None
@@ -88,6 +91,7 @@ impl MidiConverter {
             })
             .collect();
 
+        let duration = std::time::Instant::now().duration_since(start_instant);
         if log_enabled!(Level::Info) {
             let used_channels = channel_assignments
                 .into_iter()
@@ -102,8 +106,8 @@ impl MidiConverter {
                 .filter(|ch| instrument_channels.contains(ch) && used_channels.contains(ch))
                 .collect::<Vec<_>>();
 
-            info!("MIDI conversion complete. Total events: {:?}. Channels used: Instrument: {:?}, Percussion: {:?}.",
-                tracks.iter().map(Vec::len).sum::<usize>(), used_instrument_channels, used_drum_channels);
+            info!("MIDI conversion complete ({:?}). Total events: {:?}. Channels used: Instrument: {:?}, Percussion: {:?}.",
+                duration, tracks.iter().map(Vec::len).sum::<usize>(), used_instrument_channels, used_drum_channels);
         }
 
         Smf {
