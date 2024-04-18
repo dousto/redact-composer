@@ -397,6 +397,7 @@ impl Composer {
     pub fn compose_with_seed(&self, seg: Segment, seed: u64) -> Composition {
         info!(target: LOG, "Composing {:?} with seed {:?}.", seg, seed);
         debug!(target: LOG, "{:?}", self.options);
+        let start_time = std::time::Instant::now();
         let options: CompositionOptions = self.options.into();
         let mut render_tree = Tree::new();
         let mut type_cache: Vec<HashSet<TypeId>> = Vec::new();
@@ -411,56 +412,60 @@ impl Composer {
         );
         type_cache.insert(node_id, HashSet::default());
 
-        let mut render_pass = 1;
-
-        let mut rendered_node_count: usize;
-        let mut added_node_count: usize;
-        let mut first_unrendered: usize = 0;
+        // Nodes are rendered in depth-first order, meaning any children of a node will be rendered
+        // before its siblings (assuming their required context is available). Nodes which cannot be
+        // rendered (due to missing context) are skipped until their context dependencies are met.
+        //
+        // `render_stack` keeps track the (reverse) sequence of node ids to render, enabling this
+        // depth-first ordering without having to do any element shifting.
+        let mut render_stack = vec![0];
         loop {
-            // The high level loop flow is as follows:
-            // 1. Search the tree (render_nodes) for all unrendered Segment nodes
-            // 2. For each unrendered node, call its renderer
-            // 3. Add any rendered Segments to the tree as children of the rendered node.
-            //       Note: New nodes are inserted as unrendered unless they do not have a Renderer
-            // 4. Repeat until no additional nodes are rendered.
-            rendered_node_count = 0;
-            added_node_count = 0;
+            let mut added_node_count = 0;
 
-            let unrendered: Vec<usize> = render_tree[first_unrendered..]
-                .iter()
-                .filter(|n| !n.value.rendered)
-                .map(|n| n.idx)
-                .collect();
+            for render_stack_idx in (0_usize..render_stack.len()).rev() {
+                let node_idx = render_stack[render_stack_idx];
+                let is_top_of_render_stack = render_stack_idx + 1 == render_stack.len();
 
-            for idx in unrendered {
+                // Already rendered nodes can be skipped (and removed if at the top of the render stack).
+                if render_tree[node_idx].value.rendered {
+                    if is_top_of_render_stack {
+                        render_stack.pop();
+                    }
+                    continue;
+                }
+
                 let composition_context = CompositionContext::new(
                     &options,
                     &render_tree,
-                    &render_tree[idx],
+                    &render_tree[node_idx],
                     Some(&type_cache),
                 );
 
-                trace!(target: LOG, "Rendering: {:?}", &render_tree[idx]);
+                trace!(target: LOG, "Rendering: {:?}", &render_tree[node_idx]);
                 let result = self
                     .engine
-                    .render(&render_tree[idx].value.segment, composition_context);
-
-                let mut hasher = XxHash64::default();
-                render_tree[idx].value.seed.hash(&mut hasher);
-                // This rng is used to generate seeds for rendered children
-                let mut rng = ChaCha12Rng::seed_from_u64(hasher.finish());
+                    .render(&render_tree[node_idx].value.segment, composition_context);
 
                 if let Some(render_res) = result {
                     match render_res {
+                        // Case: Unable to render -- most commonly missing required context
+                        // Later iterations will retry
                         crate::render::Result::Err(err) => {
                             trace!(target: LOG, "Rendering (Node idx: {:?}) was unsuccessful: {:?}",
-                                &render_tree[idx].idx, err);
-                            render_tree[idx].value.error = Some(err);
+                                &render_tree[node_idx].idx, err);
+                            render_tree[node_idx].value.error = Some(err);
                         }
+                        // Case: Successfully rendered
                         crate::render::Result::Ok(segments) => {
                             trace!(target: LOG, "Rendering (Node idx: {:?}) succeeded, producing \
-                            {:?} children.", &render_tree[idx].idx, segments.len());
-                            let inserts: Vec<RenderSegment> = segments
+                            {:?} children.", &render_tree[node_idx].idx, segments.len());
+
+                            // Create an Rng used to generate seeds for rendered children
+                            let mut hasher = XxHash64::default();
+                            render_tree[node_idx].value.seed.hash(&mut hasher);
+                            let mut rng = ChaCha12Rng::seed_from_u64(hasher.finish());
+
+                            let children: Vec<RenderSegment> = segments
                                 .into_iter()
                                 .map(|s| RenderSegment {
                                     rendered: !self.engine.can_render(&*s.element),
@@ -472,7 +477,7 @@ impl Composer {
                                         }
                                         Some(name) => {
                                             let mut hasher = XxHash64::default();
-                                            render_tree[idx].value.seed.hash(&mut hasher);
+                                            render_tree[node_idx].value.seed.hash(&mut hasher);
                                             name.hash(&mut hasher);
                                             hasher.finish()
                                         }
@@ -482,45 +487,60 @@ impl Composer {
                                 })
                                 .collect();
 
-                            added_node_count += inserts.len();
-                            for new_render in inserts {
-                                let type_ids =
-                                    successors(Some(&*new_render.segment.element), |s| {
-                                        s.wrapped_element()
-                                    })
-                                    .map(|s| s.as_any().type_id())
-                                    .collect::<HashSet<_>>();
+                            added_node_count += children.len();
+                            let mut added_node_ids = vec![];
+
+                            for child in children {
+                                // Update the type cache (map of nodes and which other types of nodes they contain)
+                                let type_ids = successors(Some(&*child.segment.element), |s| {
+                                    s.wrapped_element()
+                                })
+                                .map(|s| s.as_any().type_id())
+                                .collect::<HashSet<_>>();
                                 for ancestor_idx in
-                                    successors(Some(idx), |p_idx| render_tree[*p_idx].parent)
+                                    successors(Some(node_idx), |p_idx| render_tree[*p_idx].parent)
                                         .collect::<Vec<_>>()
                                 {
                                     type_cache[ancestor_idx].extend(type_ids.iter().copied());
                                 }
 
-                                let node_id = render_tree.insert(new_render, Some(idx));
+                                let node_id = render_tree.insert(child, Some(node_idx));
                                 type_cache.insert(node_id, HashSet::default());
+                                added_node_ids.push(node_id);
                             }
 
-                            if idx == first_unrendered {
-                                first_unrendered += 1;
-                            };
-                            render_tree[idx].value.rendered = true;
-                            render_tree[idx].value.error = None;
-                            rendered_node_count += 1;
+                            render_tree[node_idx].value.rendered = true;
+                            render_tree[node_idx].value.error = None;
+
+                            // Nodes are only rendered once so it can be removed if at the top of the stack.
+                            // If not at the top, it will be removed at a later iteration (preventing
+                            // unnecessary element shifting).
+                            if is_top_of_render_stack {
+                                render_stack.pop();
+                            }
+                            // Add the new node ids to the top of the render stack in reverse order
+                            // (reverse order ensures they are rendered in the same order they were produced)
+                            render_stack
+                                .append(&mut added_node_ids.into_iter().rev().collect::<Vec<_>>());
+
+                            // Breaking here ensures depth-first rendering by starting the iteration over
+                            // from the top of the render_stack (which is where the newly added nodes are).
+                            if added_node_count > 0 {
+                                break;
+                            }
                         }
                     }
                 }
             }
 
-            debug!(target: LOG, "Render pass {:?} rendered {:?} segments, generating {:?} more.",
-                render_pass, rendered_node_count, added_node_count);
-            render_pass += 1;
+            // If no nodes were added, no further progress can be made -- rendering complete.
             if added_node_count == 0 {
                 break;
             }
         }
 
-        info!(target: LOG, "Finished composing.");
+        let duration = std::time::Instant::now().duration_since(start_time);
+        info!(target: LOG, "Finished composing. ({:?})", duration);
 
         if log_enabled!(target: LOG, Level::Warn) {
             render_tree
