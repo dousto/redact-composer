@@ -2,7 +2,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::derive::Element;
 use crate::error::RendererError::MissingContext;
+use crate::render::context::TimingRelation::Overlapping;
 use crate::render::{AdhocRenderer, RenderEngine};
+use crate::IntoSegment;
 use crate::{Composer, Composition, Segment};
 
 #[test]
@@ -93,3 +95,89 @@ struct SerdeTestComplexType {
 
 #[derive(Element, Serialize, Deserialize, Debug)]
 struct SerdeTestError;
+
+#[test]
+fn depth_first_render_order() {
+    // Create elements/renderers to form the following tree:
+    //            RORoot
+    //        /     |      \
+    //   RONode1  RONode2  RONode3
+    //      |       |        |
+    //   RONode4  RONode5  RONode6
+    //      |       |        |
+    //   RONode7  RONode8  RONode9
+    //
+    // With these context dependencies (-> = "depends on"):
+    // RONode1 -> RONode5
+    // RONode5 -> RONode3
+    //
+    // This should result in the following sequence of nodes being added the tree:
+    // [RORoot, RONode1, RONode2, RONode3, RONode5, RONode6, RONode9, RONode8, RONode4, RONode7]
+    //
+    // If this is confusing, remember the following:
+    // * Nodes are added to the tree when their parent renders, but they are initially undrendered.
+    // * Nodes are considered rendered only after their dependencies are satisfied and they produce children
+    //   (unless they are leaf nodes).
+    // * A context dependency is not satisfied until its target is in the tree *and* rendered.
+    // * When a node gets its turn to render, it does it in depth (to the extent context dependencies allow)
+    //   even if during the process it satisfies a dependency which was blocking a previous node render.
+    #[derive(Element, Serialize, Deserialize, Debug)]
+    struct RORoot;
+    #[derive(Element, Serialize, Deserialize, Debug)]
+    struct RONode1;
+    #[derive(Element, Serialize, Deserialize, Debug)]
+    struct RONode2;
+    #[derive(Element, Serialize, Deserialize, Debug)]
+    struct RONode3;
+    #[derive(Element, Serialize, Deserialize, Debug)]
+    struct RONode4;
+    #[derive(Element, Serialize, Deserialize, Debug)]
+    struct RONode5;
+    #[derive(Element, Serialize, Deserialize, Debug)]
+    struct RONode6;
+    #[derive(Element, Serialize, Deserialize, Debug)]
+    struct RONode7;
+    #[derive(Element, Serialize, Deserialize, Debug)]
+    struct RONode8;
+    #[derive(Element, Serialize, Deserialize, Debug)]
+    struct RONode9;
+
+    let engine = RenderEngine::new()
+        + AdhocRenderer::<RORoot>::new(|seg, _| {
+            Ok(vec![
+                RONode1.over(seg.timing),
+                RONode2.over(seg.timing),
+                RONode3.over(seg.timing),
+            ])
+        })
+        + AdhocRenderer::<RONode1>::new(|seg, ctx| {
+            ctx.find::<RONode5>()
+                .with_timing(Overlapping, seg.timing)
+                .require()?;
+            Ok(vec![RONode4.over(seg.timing)])
+        })
+        + AdhocRenderer::<RONode2>::new(|seg, _| Ok(vec![RONode5.over(seg.timing)]))
+        + AdhocRenderer::<RONode3>::new(|seg, _| Ok(vec![RONode6.over(seg.timing)]))
+        + AdhocRenderer::<RONode4>::new(|seg, _| Ok(vec![RONode7.over(seg.timing)]))
+        + AdhocRenderer::<RONode5>::new(|seg, ctx| {
+            ctx.find::<RONode3>()
+                .with_timing(Overlapping, seg.timing)
+                .require()?;
+            Ok(vec![RONode8.over(seg.timing)])
+        })
+        + AdhocRenderer::<RONode6>::new(|seg, _| Ok(vec![RONode9.over(seg.timing)]));
+
+    let composer = Composer::from(engine);
+    let comp = composer.compose_with_seed(Segment::new(RORoot, 0..10), 0);
+
+    assert!(comp.tree[0].value.segment.element_as::<RORoot>().is_some());
+    assert!(comp.tree[1].value.segment.element_as::<RONode1>().is_some());
+    assert!(comp.tree[2].value.segment.element_as::<RONode2>().is_some());
+    assert!(comp.tree[3].value.segment.element_as::<RONode3>().is_some());
+    assert!(comp.tree[4].value.segment.element_as::<RONode5>().is_some());
+    assert!(comp.tree[5].value.segment.element_as::<RONode6>().is_some());
+    assert!(comp.tree[6].value.segment.element_as::<RONode9>().is_some());
+    assert!(comp.tree[7].value.segment.element_as::<RONode8>().is_some());
+    assert!(comp.tree[8].value.segment.element_as::<RONode4>().is_some());
+    assert!(comp.tree[9].value.segment.element_as::<RONode7>().is_some());
+}
