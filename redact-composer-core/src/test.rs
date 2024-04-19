@@ -145,27 +145,27 @@ fn depth_first_render_order() {
     let engine = RenderEngine::new()
         + AdhocRenderer::<RORoot>::new(|seg, _| {
             Ok(vec![
-                RONode1.over(seg.timing),
-                RONode2.over(seg.timing),
-                RONode3.over(seg.timing),
+                RONode1.over(seg),
+                RONode2.over(seg),
+                RONode3.over(seg),
             ])
         })
         + AdhocRenderer::<RONode1>::new(|seg, ctx| {
             ctx.find::<RONode5>()
-                .with_timing(Overlapping, seg.timing)
+                .with_timing(Overlapping, seg)
                 .require()?;
-            Ok(vec![RONode4.over(seg.timing)])
+            Ok(vec![RONode4.over(seg)])
         })
-        + AdhocRenderer::<RONode2>::new(|seg, _| Ok(vec![RONode5.over(seg.timing)]))
-        + AdhocRenderer::<RONode3>::new(|seg, _| Ok(vec![RONode6.over(seg.timing)]))
-        + AdhocRenderer::<RONode4>::new(|seg, _| Ok(vec![RONode7.over(seg.timing)]))
+        + AdhocRenderer::<RONode2>::new(|seg, _| Ok(vec![RONode5.over(seg)]))
+        + AdhocRenderer::<RONode3>::new(|seg, _| Ok(vec![RONode6.over(seg)]))
+        + AdhocRenderer::<RONode4>::new(|seg, _| Ok(vec![RONode7.over(seg)]))
         + AdhocRenderer::<RONode5>::new(|seg, ctx| {
             ctx.find::<RONode3>()
-                .with_timing(Overlapping, seg.timing)
+                .with_timing(Overlapping, seg)
                 .require()?;
-            Ok(vec![RONode8.over(seg.timing)])
+            Ok(vec![RONode8.over(seg)])
         })
-        + AdhocRenderer::<RONode6>::new(|seg, _| Ok(vec![RONode9.over(seg.timing)]));
+        + AdhocRenderer::<RONode6>::new(|seg, _| Ok(vec![RONode9.over(seg)]));
 
     let composer = Composer::from(engine);
     let comp = composer.compose_with_seed(Segment::new(RORoot, 0..10), 0);
