@@ -1,7 +1,7 @@
 [package]
 name = "redact-composer-musical"
 description = "Music theory domain models and utilities packaged with redact-composer"
-version = "0.3.1"
+version = "0.3.2"
 repository = "https://github.com/dousto/redact-composer"
 authors = ["Doug Stoeckmann <dousto@gmail.com>"]
 keywords = ["music", "theory"]
@@ -12,7 +12,7 @@ edition = "2021"
 [dependencies]
 rand = { workspace = true }
 
-redact-composer-core = { optional = true, path = "../redact-composer-core", version = "0.2.2" }
+redact-composer-core = { optional = true, path = "../redact-composer-core", version = "0.2.3" }
 serde = { optional = true, workspace = true }
 typetag = { optional = true, workspace = true }
 
