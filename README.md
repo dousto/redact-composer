@@ -91,12 +91,12 @@ impl Renderer for CompositionRenderer {
         Ok(
             // Repeat the four chords over the composition -- one every two beats
             Rhythm::from([2 * context.beat_length()])
-                .iter_over(composition.timing)
+                .iter_over(composition)
                 .zip(chords.into_iter().cycle())
-                .map(|(subdivision, chord)| chord.over(subdivision.timing()))
+                .map(|(subdivision, chord)| chord.over(subdivision))
                 .chain([
                     // Also include the new component, spanning the whole composition
-                    Part::instrument(PlayChords).over(composition.timing),
+                    Part::instrument(PlayChords).over(composition),
                 ])
                 .collect(),
         )
@@ -140,7 +140,7 @@ impl Renderer for PlayChordsRenderer {
                     .map(|note|
                         // Add subtle nuance striking the notes with different velocities
                         note.play(rng.gen_range(80..110) /* velocity */)
-                            .over(chord.timing))
+                            .over(chord))
                     .collect::<Vec<_>>()
             })
             .collect();
@@ -171,7 +171,7 @@ And finally the magic unfolds by passing a root [`Segment`](crate::Segment) to i
 ```rust
 // Create a 16-beat length composition
 let composition_length = composer.options.ticks_per_beat * 16;
-let composition = composer.compose(CompositionRoot.into_segment(0..composition_length));
+let composition = composer.compose(CompositionRoot.over(0..composition_length));
 
 // Convert it to a MIDI file and save it
 MidiConverter::convert(&composition).save("./composition.mid").unwrap();
