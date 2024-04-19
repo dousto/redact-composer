@@ -126,7 +126,7 @@ impl Renderer for PlayChordsRenderer {
     ) -> Result<Vec<Segment>> {
         // `CompositionContext` enables finding previously rendered elements
         let chord_segments = context.find::<Chord>()
-            .with_timing(Within, play_chords.timing)
+            .with_timing(Within, play_chords)
             .require_all()?;
         // As well as random number generation
         let mut rng = context.rng();
