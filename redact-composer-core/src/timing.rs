@@ -129,11 +129,17 @@ impl Timing {
     /// # use redact_composer_core::timing::Timing;
     /// assert_eq!(Timing::from(0..10).shifted_by(10), Timing::from(10..20))
     /// ```
+    /// May also accept a `(i32, i32)` tuple representing different start/end shifts.
+    /// ```
+    /// # use redact_composer_core::timing::Timing;
+    /// assert_eq!(Timing::from(1..10).shifted_by((-1, 1)), Timing::from(0..11))
+    /// ```
     #[inline]
-    pub fn shifted_by(&self, amount: i32) -> Timing {
+    #[allow(private_bounds)]
+    pub fn shifted_by<O: EndpointOffsets>(&self, amount: O) -> Timing {
         Self {
-            start: self.start + amount,
-            end: self.end + amount,
+            start: self.start + amount.start_offset(),
+            end: self.end + amount.end_offset(),
         }
     }
 
@@ -275,6 +281,31 @@ impl Timing {
     #[inline]
     pub fn ends_within(&self, other: &impl RangeBounds<i32>) -> bool {
         RangeOps::ends_within(self, other)
+    }
+}
+
+trait EndpointOffsets {
+    fn start_offset(&self) -> i32;
+    fn end_offset(&self) -> i32;
+}
+
+impl EndpointOffsets for (i32, i32) {
+    fn start_offset(&self) -> i32 {
+        self.0
+    }
+
+    fn end_offset(&self) -> i32 {
+        self.1
+    }
+}
+
+impl EndpointOffsets for i32 {
+    fn start_offset(&self) -> i32 {
+        *self
+    }
+
+    fn end_offset(&self) -> i32 {
+        *self
     }
 }
 
