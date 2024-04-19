@@ -1,6 +1,6 @@
 [package]
 name = "redact-composer-musical"
-description = "Music theory domain models and utilities packaged with redact-composer"
+description = "Music theory domain models and utilities packaged with redact-composer (may also be used standalone)"
 version = "0.3.2"
 repository = "https://github.com/dousto/redact-composer"
 authors = ["Doug Stoeckmann <dousto@gmail.com>"]
