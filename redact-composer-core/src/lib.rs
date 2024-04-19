@@ -25,7 +25,7 @@ use std::collections::{Bound, HashSet};
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::iter::successors;
-use std::ops::RangeBounds;
+use std::ops::{Range, RangeBounds};
 use twox_hash::XxHash64;
 
 #[cfg(feature = "serde")]
@@ -230,6 +230,18 @@ impl<'a, T: Element> RangeBounds<i32> for SegmentRef<'a, T> {
 
     fn end_bound(&self) -> Bound<&i32> {
         self.timing.end_bound()
+    }
+}
+
+impl<'a, T: Element> From<&SegmentRef<'a, T>> for Timing {
+    fn from(value: &SegmentRef<'a, T>) -> Self {
+        *value.timing
+    }
+}
+
+impl<'a, T: Element> From<&SegmentRef<'a, T>> for Range<i32> {
+    fn from(value: &SegmentRef<'a, T>) -> Self {
+        value.timing.into()
     }
 }
 
