@@ -10,7 +10,7 @@ use rand::{seq::SliceRandom, Rng};
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "redact-composer")]
-use redact_composer_core::derive::Element;
+use redact_composer_core::{derive::Element, timing::Timing};
 
 #[cfg(test)]
 mod test;
@@ -43,6 +43,20 @@ impl From<Subdivision> for Range<i32> {
 impl From<&Subdivision> for Range<i32> {
     fn from(value: &Subdivision) -> Self {
         value.timing()
+    }
+}
+
+#[cfg(feature = "redact-composer")]
+impl From<&Subdivision> for Timing {
+    fn from(value: &Subdivision) -> Self {
+        value.timing().into()
+    }
+}
+
+#[cfg(feature = "redact-composer")]
+impl From<Subdivision> for Timing {
+    fn from(value: Subdivision) -> Self {
+        value.timing().into()
     }
 }
 
