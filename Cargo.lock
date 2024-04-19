@@ -259,7 +259,7 @@ dependencies = [
 
 [[package]]
 name = "redact-composer"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "rand",
  "redact-composer-core",
@@ -273,7 +273,7 @@ dependencies = [
 
 [[package]]
 name = "redact-composer-core"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "log",
  "rand",
@@ -299,7 +299,7 @@ dependencies = [
 
 [[package]]
 name = "redact-composer-midi"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "log",
  "midly",
@@ -313,7 +313,7 @@ dependencies = [
 
 [[package]]
 name = "redact-composer-musical"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "rand",
  "redact-composer-core",
