@@ -202,11 +202,7 @@ pub struct CtxQuery<'a, S: Element, F: Fn(&S) -> bool> {
 
 impl<'a, S: Element, F: Fn(&S) -> bool> CtxQuery<'a, S, F> {
     /// Restrict the search to segments matching a given [`TimingRelation`].
-    pub fn with_timing<R: RangeBounds<i32>>(
-        mut self,
-        relation: TimingRelation,
-        timing: &R,
-    ) -> Self {
+    pub fn with_timing<R: RangeBounds<i32>>(mut self, relation: TimingRelation, timing: R) -> Self {
         self.timing = Some(TimingConstraint::from((relation, timing)));
 
         self
@@ -248,7 +244,7 @@ impl<'a, S: Element, F: Fn(&S) -> bool> CtxQuery<'a, S, F> {
                 self.where_fn,
                 self.timing.unwrap_or(TimingConstraint::from((
                     During,
-                    &self.ctx.start.value.segment.timing,
+                    self.ctx.start.value.segment.timing,
                 ))),
                 self.scope.unwrap_or(SearchScope::Anywhere),
             )
@@ -273,7 +269,7 @@ impl<'a, S: Element, F: Fn(&S) -> bool> CtxQuery<'a, S, F> {
             self.where_fn,
             self.timing.unwrap_or(TimingConstraint::from((
                 Overlapping,
-                &self.ctx.start.value.segment.timing,
+                self.ctx.start.value.segment.timing,
             ))),
             self.scope.unwrap_or(SearchScope::Anywhere),
         ) {
@@ -341,8 +337,8 @@ struct TimingConstraint {
     pub ref_range: (Bound<i32>, Bound<i32>),
 }
 
-impl<R: RangeBounds<i32>> From<(TimingRelation, &R)> for TimingConstraint {
-    fn from(value: (TimingRelation, &R)) -> Self {
+impl<R: RangeBounds<i32>> From<(TimingRelation, R)> for TimingConstraint {
+    fn from(value: (TimingRelation, R)) -> Self {
         TimingConstraint {
             relation: value.0,
             ref_range: (value.1.start_bound().cloned(), value.1.end_bound().cloned()),
