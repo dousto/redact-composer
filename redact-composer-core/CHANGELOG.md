@@ -6,6 +6,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.4](https://github.com/dousto/redact-composer/compare/redact-composer-core-v0.2.3...redact-composer-core-v0.2.4) - 2024-04-19
+
+### Added
+- Make `EndpointOffsets` trait public (used with `Timing::shift_by`)
+- Allow specifying tuple for `Timing::shift_by`
+- Update `CompositionContext::with_timing` signature for more convenient usage with most use cases
+
+### Other
+- Remove now unnecessary `.timing` accessor
+- Remove now unnecessary `.timing` accessors
+- Fix some typos in changelogs to make CI happy
+
 ## [0.2.3](https://github.com/dousto/redact-composer/compare/redact-composer-core-v0.2.2...redact-composer-core-v0.2.3) - 2024-04-19
 
 ### Added

@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.3](https://github.com/dousto/redact-composer/compare/redact-composer-musical-v0.3.2...redact-composer-musical-v0.3.3) - 2024-04-19
+
+### Other
+- Remove now unnecessary `.timing` accessor
+- Change `redact-composer-musical` to indicate it can be used standalone
+- Fix some typos in changelogs to make CI happy
+
 ## [0.3.2](https://github.com/dousto/redact-composer/compare/redact-composer-musical-v0.3.1...redact-composer-musical-v0.3.2) - 2024-04-19
 
 ### Added
