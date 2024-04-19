@@ -135,7 +135,6 @@ impl Timing {
     /// assert_eq!(Timing::from(1..10).shifted_by((-1, 1)), Timing::from(0..11))
     /// ```
     #[inline]
-    #[allow(private_bounds)]
     pub fn shifted_by<O: EndpointOffsets>(&self, amount: O) -> Timing {
         Self {
             start: self.start + amount.start_offset(),
@@ -284,8 +283,11 @@ impl Timing {
     }
 }
 
-trait EndpointOffsets {
+/// Defines a start/end offsets for use when shifting a [`Timing`]'s boundaries.
+pub trait EndpointOffsets {
+    /// Offset to be applied to the [`Timing`]'s start bound.
     fn start_offset(&self) -> i32;
+    /// Offset to be applied to the [`Timing`]'s end bound.
     fn end_offset(&self) -> i32;
 }
 
