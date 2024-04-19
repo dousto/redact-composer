@@ -233,9 +233,21 @@ impl<'a, T: Element> RangeBounds<i32> for SegmentRef<'a, T> {
     }
 }
 
+impl<'a, T: Element> From<SegmentRef<'a, T>> for Timing {
+    fn from(value: SegmentRef<'a, T>) -> Self {
+        *value.timing
+    }
+}
+
 impl<'a, T: Element> From<&SegmentRef<'a, T>> for Timing {
     fn from(value: &SegmentRef<'a, T>) -> Self {
         *value.timing
+    }
+}
+
+impl<'a, T: Element> From<SegmentRef<'a, T>> for Range<i32> {
+    fn from(value: SegmentRef<'a, T>) -> Self {
+        value.timing.into()
     }
 }
 
