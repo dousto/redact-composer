@@ -4,7 +4,7 @@ description = "A library for building modular musical composers."
 version = "0.3.3"
 repository = "https://github.com/dousto/redact-composer"
 authors = ["Doug Stoeckmann <dousto@gmail.com>"]
-keywords = ["compose", "music"]
+keywords = ["redact", "compose", "music", "song", "composition"]
 categories = ["multimedia::audio", "simulation"]
 readme = "../README.md"
 license = "MIT"
@@ -16,9 +16,10 @@ redact-composer-core = { path = "../redact-composer-core", version = "0.2.4" }
 redact-composer-derive = { optional = true, path = "../redact-composer-derive", version = "0.1.1" }
 redact-composer-musical = { optional = true, path = "../redact-composer-musical", version = "0.3.3" }
 redact-composer-midi = { optional = true, path = "../redact-composer-midi", version = "0.1.8" }
+redact-composer-synthesis = { optional = true, path = "../redact-composer-synthesis", version = "0.1.0"}
 
 [features]
-default = ["derive", "musical", "midi", "serde"]
+default = ["derive", "musical", "midi", "synthesis", "serde"]
 # Enables derive macro for Element
 derive = ["dep:redact-composer-derive"]
 # Provides music theory domain models and utilities
@@ -28,6 +29,8 @@ musical = [
 ]
 # Provides MIDI-related elements and composition output converter
 midi = ["dep:redact-composer-midi"]
+# Enables audio synthesis of composition outputs
+synthesis = ["dep:redact-composer-synthesis"]
 # Enables serialization and deserialization of compositions via serde
 serde = [
     "redact-composer-core/serde",
