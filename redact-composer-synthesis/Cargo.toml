@@ -1,0 +1,25 @@
+[package]
+name = "redact-composer-synthesis"
+description = "Midi synthesis adapter for redact-composer"
+version = "0.1.0"
+repository = "https://github.com/dousto/redact-composer/tree/main/redact-composer-synthesis"
+authors = ["Doug Stoeckmann <dousto@gmail.com>"]
+keywords = ["redact-composer", "convert", "synth", "synthesize", "render"]
+categories = ["multimedia::audio", "multimedia::encoding", "encoding"]
+readme = "../README.md"
+license = "MIT"
+edition = "2021"
+
+[dependencies]
+redact-composer-core = { path = "../redact-composer-core", version = "0.2.4" }
+redact-composer-midi = { path = "../redact-composer-midi", version = "0.1.8" }
+thiserror = { workspace = true }
+log = { workspace = true }
+midly = { workspace = true }
+rustysynth = "1.3.1"
+hound = "3.5.1"
+
+[dev-dependencies]
+typetag = { workspace = true }
+serde = { workspace = true }
+redact-composer-musical = { path = "../redact-composer-musical", version = "0.3.3", features = ["redact-composer"]}
