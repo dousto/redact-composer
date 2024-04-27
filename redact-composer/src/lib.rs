@@ -27,6 +27,11 @@ pub use redact_composer_derive::Element;
 /// `feature = midi (default)`
 pub use redact_composer_midi as midi;
 
+#[cfg(feature = "synthesis")]
+#[doc(inline)]
+/// `feature = synthesis (default)`
+pub use redact_composer_synthesis as synthesis;
+
 #[cfg(feature = "musical")]
 #[doc(inline)]
 /// `feature = musical (default)`
