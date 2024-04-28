@@ -175,11 +175,18 @@ let composition = composer.compose(CompositionRoot.over(0..composition_length));
 
 // Convert it to a MIDI file and save it
 MidiConverter::convert(&composition).save("./composition.mid").unwrap();
+
+// And/or synthesize it to audio with a SoundFont
+let synth = SF2Synthesizer::new("./sounds/sound_font.sf2").unwrap();
+synth.synthesize(&composition).to_file("./composition.wav").unwrap();
 ```
+> Note: [`SF2Synthesizer`](crate::synthesis::SF2Synthesizer) does not have any default/embedded SoundFont so you'll have
+> to supply your own. (FluidR3, created by Frank Wen, is a great general-purpose, high-quality, MIT licensed option)
 
-When plugged into your favorite midi player, the `composition.mid` file should sound somewhat like this:
 
-<https://github.com/dousto/redact-composer/assets/5882189/9928539f-2e15-4049-96ad-f536784ee7a1>
+The output should sound somewhat like this:
+
+<https://github.com/dousto/redact-composer/assets/5882189/aeed4e7a-5543-4cf1-839d-d5f62c55fea9>
 
 Additionally, composition outputs support serialization/deserialization (with `serde` feature, enabled by default).
 
@@ -217,7 +224,7 @@ For example, here is the [simple example loaded in the inspector](https://dousto
 </summary>
 
 ### `default`
-`derive`, `musical`, `midi`, `serde`
+`derive`, `musical`, `midi`, `synthesis`, `serde`
 
 ### `derive` <sub>default</sub>
 Enable derive macro for [`Element`](crate::Element).
@@ -229,6 +236,9 @@ Include [`musical`](crate::musical) domain module. ([`Key`](crate::musical::Key)
 ### `midi` <sub>default</sub>
 Include [`midi`](crate::midi) module containing MIDI-related [`Element`](crate::Element)s and MIDI converter for
 [`Composition`](crate::Composition)s.
+
+### `synthesis` <sub>default</sub>
+Include [`synthesis`](crate::synthesis) module to synthesize [`Composition`](crate::Composition)s into audio.
 
 ### `serde` <sub>default</sub>
 Enables serialization and deserialization of [`Composition`](crate::Composition) outputs via (as you may have guessed)
