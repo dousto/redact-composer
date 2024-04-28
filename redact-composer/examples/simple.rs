@@ -2,16 +2,19 @@ use rand::Rng;
 use redact_composer::{
     elements::Part,
     midi::convert::MidiConverter,
-    musical::{elements::Chord, rhythm::Rhythm},
+    musical::{
+        elements::Chord,
+        rhythm::Rhythm,
+        ChordShape::maj,
+        Note, NoteIterator,
+        NoteName::{C, F, G},
+    },
     render::context::{CompositionContext, TimingRelation::Within},
     render::{RenderEngine, Result},
+    synthesis::SF2Synthesizer,
     util::IntoSegment,
-    Composer, Renderer, Segment,
+    Composer, Renderer, Segment, SegmentRef,
 };
-use redact_composer_core::SegmentRef;
-use redact_composer_musical::ChordShape::maj;
-use redact_composer_musical::NoteName::{C, F, G};
-use redact_composer_musical::{Note, NoteIterator};
 use serde::{Deserialize, Serialize};
 use std::fs;
 
@@ -25,6 +28,13 @@ fn main() {
     // Convert it to a MIDI file and save it
     MidiConverter::convert(&composition)
         .save("./composition.mid")
+        .unwrap();
+
+    // And/or synthesize it to audio with a SoundFont
+    let synth = SF2Synthesizer::new("./sounds/sound_font.sf2").unwrap();
+    synth
+        .synthesize(&composition)
+        .to_file("./composition.wav")
         .unwrap();
 
     // Write the composition output in json format
