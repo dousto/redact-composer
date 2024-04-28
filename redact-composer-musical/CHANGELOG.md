@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.4](https://github.com/dousto/redact-composer/compare/redact-composer-musical-v0.3.3...redact-composer-musical-v0.3.4) - 2024-04-28
+
+### Other
+- update Cargo.toml dependencies
+
 ## [0.3.3](https://github.com/dousto/redact-composer/compare/redact-composer-musical-v0.3.2...redact-composer-musical-v0.3.3) - 2024-04-19
 
 ### Other
