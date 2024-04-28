@@ -1,7 +1,7 @@
 [package]
 name = "redact-composer-synthesis"
 description = "Audio synthesis utilities for redact-composer"
-version = "0.1.0"
+version = "0.1.1"
 repository = "https://github.com/dousto/redact-composer/tree/main/redact-composer-synthesis"
 authors = ["Doug Stoeckmann <dousto@gmail.com>"]
 keywords = ["redact-composer", "convert", "synth", "synthesize", "render"]
