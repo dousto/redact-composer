@@ -11,8 +11,8 @@ license = "MIT"
 edition = "2021"
 
 [dependencies]
-redact-composer-core = { path = "../redact-composer-core", version = "0.2.4" }
-redact-composer-midi = { path = "../redact-composer-midi", version = "0.1.8" }
+redact-composer-core = { path = "../redact-composer-core", version = "0.2.5" }
+redact-composer-midi = { path = "../redact-composer-midi", version = "0.1.9" }
 thiserror = { workspace = true }
 log = { workspace = true }
 midly = { workspace = true }
@@ -22,4 +22,4 @@ hound = "3.5.1"
 [dev-dependencies]
 typetag = { workspace = true }
 serde = { workspace = true }
-redact-composer-musical = { path = "../redact-composer-musical", version = "0.3.3", features = ["redact-composer"]}
+redact-composer-musical = { path = "../redact-composer-musical", version = "0.3.4", features = ["redact-composer"]}
